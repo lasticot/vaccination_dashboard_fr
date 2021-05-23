@@ -7,65 +7,63 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-#%%
 #######
 # chargement et formattage des data
 #######
 
+def load_format_data():
+    # vaccination
+    df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
+        parse_dates=['jour'], dtype={'dep':str}, usecols=['dep', 'jour', 'clage_vacsi', 'n_dose1', 'n_complet'])
 
-# vaccination
-df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
-    parse_dates=['jour'], dtype={'dep':str}, usecols=['dep', 'jour', 'clage_vacsi', 'n_dose1', 'n_complet'])
+    # population par département, classe d'âge et sexe
+    # source INSEE : https://www.insee.fr/fr/statistiques/1893198
+    df2 = pd.read_excel('pop_dep_sexe_age.xlsx', engine='openpyxl', dtype={'dep':str})
 
-# population par département, classe d'âge et sexe
-# source INSEE : https://www.insee.fr/fr/statistiques/1893198
-df2 = pd.read_excel('pop_dep_sexe_age.xlsx', engine='openpyxl', dtype={'dep':str})
+    # changement de nom
+    vacc = df1.copy()
+    departements = df2.copy()
 
-#%% 
-# changement de nom
-vacc = df1.copy()
-departements = df2.copy()
+    # Unpivot du fichier dep
+    departements = departements.melt(id_vars = ['dep', 'nom_dep'], value_name='pop')
 
-# Unpivot du fichier dep
-departements = departements.melt(id_vars = ['dep', 'nom_dep'], value_name='pop')
+    # split du sexe et de la classe d'âge
+    departements['sexe']  = departements.variable.str[0]
+    departements['age'] = departements.variable.str[1:]
+    departements.drop('variable', axis=1, inplace=True)
 
-# split du sexe et de la classe d'âge
-departements['sexe']  = departements.variable.str[0]
-departements['age'] = departements.variable.str[1:]
-departements.drop('variable', axis=1, inplace=True)
+    # on laisse tomber les <25 pour faire correspondre les classes d'âges dans les 2 df
+    departements.age = departements.age.str.strip('+').astype(int)
+    departements = departements[departements.age >= 29].copy()
+    vacc = vacc[vacc.clage_vacsi >= 29].copy()
 
-# on laisse tomber les <25 pour faire correspondre les classes d'âges dans les 2 df
-departements.age = departements.age.str.strip('+').astype(int)
-departements = departements[departements.age >= 29].copy()
-vacc = vacc[vacc.clage_vacsi >= 29].copy()
+    # on laisse tomber le dep 00 (total) et >976 (pas présents dans dep)
+    vacc = vacc[vacc.dep.isin(departements.dep.unique())].copy()
 
-# on laisse tomber le dep 00 (total) et >976 (pas présents dans dep)
-vacc = vacc[vacc.dep.isin(departements.dep.unique())].copy()
+    # regroupement des classes d'âges dans dep pour correspondre aux classes d'âges des vaccins
+    bins = pd.IntervalIndex.from_tuples([(24, 29), (30, 39), (40, 49), (50, 59), (60, 64), (65, 69), (70, 74), (75, 79), (80, np.inf)])
+    departements['clage'] = pd.cut(departements.age, bins, labels=['29', '39', '49', '59', '64', '69', '74', '79', '89'])
+    temp = departements.groupby(['dep', 'clage'], as_index=False)['pop'].sum()
 
-# regroupement des classes d'âges dans dep pour correspondre aux classes d'âges des vaccins
-bins = pd.IntervalIndex.from_tuples([(24, 29), (30, 39), (40, 49), (50, 59), (60, 64), (65, 69), (70, 74), (75, 79), (80, np.inf)])
-departements['clage'] = pd.cut(departements.age, bins, labels=['29', '39', '49', '59', '64', '69', '74', '79', '89'])
-temp = departements.groupby(['dep', 'clage'], as_index=False)['pop'].sum()
+    renaming = dict(zip(temp.clage.unique(), vacc.clage_vacsi.unique()))
+    temp['clage'] = temp['clage'].replace(renaming)
 
-renaming = dict(zip(temp.clage.unique(), vacc.clage_vacsi.unique()))
-temp['clage'] = temp['clage'].replace(renaming)
+    # ajout des noms de département (le gropuby ne marche pas si je les garde ¯\_(ツ)_/¯)
+    nom_dep = departements.groupby(['dep', 'nom_dep'], as_index=False).min()[['dep', 'nom_dep']]
+    departements = temp.merge(nom_dep, how='left', on='dep')
 
-# ajout des noms de département (le gropuby ne marche pas si je les garde ¯\_(ツ)_/¯)
-nom_dep = departements.groupby(['dep', 'nom_dep'], as_index=False).min()[['dep', 'nom_dep']]
-departements = temp.merge(nom_dep, how='left', on='dep')
+    return vacc, departements
 
-#%%
 ###########
 # Values computation
 ###########
-def compute_vacc(dep, age=None):
+def compute_vacc(vacc, departements, dep, age=None):
     '''
     Returns dictionary of vaccination values needed to draw bullet graphs and sparkline
     aggregated by department and age. 
     keys : 'population', 'dep_nom', 'pc_dose1', 'pc_complet', 'mm_injections', 'inj_last_7D', 'inj_minus_1W'
     ++++++++++++++ Ajouter le calcul de l'objectif de 35M en juin +++++++++++
     '''
-    global departements, vacc
 
     # dep population and name
     if age == None:
@@ -112,13 +110,12 @@ def compute_vacc(dep, age=None):
         'inj_minus_1W'  : inj_last_7D_minus1W
     }
     
-def compute_vacc_fr(age=None): 
+def compute_vacc_fr(vacc, departements, age=None): 
     '''
     returns dictionary of vacc values for France
     keys : 
     'population', 'pc_dose1', 'pc_complet', 'mm_injections', 'inj_minus_1W'
     '''
-    global vacc, departements
 
     # total population for age group
     if age == None:
@@ -166,8 +163,6 @@ def compute_vacc_fr(age=None):
         'inj_minus_1W'  : inj_last_7D_minus1W
     }
 
-#%%
-
 def sort_dep(departements, vacc, age=None):
     '''
     Sort dep by pc of dose1
@@ -176,13 +171,13 @@ def sort_dep(departements, vacc, age=None):
     all_dep_complet = []
 
     for dep in vacc.dep.unique():
-        all_dep_complet.append(compute_vacc(dep, age)['pc_complet'])
+        all_dep_complet.append(compute_vacc(vacc, departements, dep, age)['pc_complet'])
     dep_names = vacc.dep.unique()
     dep_names_doses = OrderedDict(zip(dep_names, all_dep_complet))
     dep_names_doses_sorted = {k:v for k,v in sorted(dep_names_doses.items(), key=lambda item : item[1], reverse=True)}
 
     return dep_names_doses_sorted
-#%%
+
 ################
 # bullet chart
 ################
@@ -238,29 +233,9 @@ def make_bullet(dict_fr, dict_dep = None, dose=1, first_col=False):
         chart['title'] = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}
     return chart
 
-fig = make_subplots(rows=1, cols=1, specs=[[{'type':'domain'}]])
-fig.append_trace(make_bullet(compute_vacc_fr(69)), 1, 1)
-fig.update_layout(
-    height = 30,
-    width = 250,
-    margin =  {'t': 7, 'b': 7, 'l' : 5, 'r' : 3}
-)
-fig.show()
-# for num_dep in ['01', '02', '03']:
-#     make_bullet(0.25, 0.5)
-#%%
-
 ##############
 #Sparklines
 #############
-
-num_dep = '75'
-clage = 79
-vacc_dep_age_date  = vacc[(vacc.dep == num_dep) & (vacc.clage_vacsi == clage )].copy()
-vacc_dep_age_date_mm = vacc_dep_age_date.rolling(7).mean()
-df = vacc_dep_age_date_mm.iloc[-30:-1,:]
-
-fig  = go.Figure()
 
 def make_sparkline(dict):
     '''
@@ -286,21 +261,6 @@ def make_sparkline(dict):
     )
     return sparkline, last_point
 
-fig.update_layout(
-    xaxis = {'visible' : False},
-    yaxis = {'visible' : False},
-    width = 100,
-    height = 35,
-    plot_bgcolor = 'white',
-    margin = {'t' : 0.3, 'b' : 0.3, 'l' : 0, 'r' : 3.5}
-)
-values = compute_vacc('75', 59)
-lines  = make_sparkline(values)
-fig.add_trace(lines[0])
-fig.add_trace(lines[1])
-fig.show()
-
-#%%
 ################
 # Card
 ################
@@ -320,152 +280,19 @@ def make_card(dict):
     )
     return card
 
-fig = go.Figure()
-
-fig.add_trace(make_card(compute_vacc('14', 59)))
-
-fig.update_layout(
-    width = 50,
-    height = 30,
-    plot_bgcolor = 'rgba(0, 0, 0, 0)',
-    paper_bgcolor = 'rgba(0, 0, 0, 0)',
-    xaxis = {'visible' : False}, 
-    yaxis = {'visible' : False},
-    # font = {'size' : 20},
-    margin = {
-        't' : 0,
-        'b' : 0,
-        'l' : 9.2,
-        'r' : 0
-    },
-    showlegend = False
-
-)
-
-#%%
-
 def make_header(title):
     header = go.Indicator(
         title = 'ceci est un titre', 
         mode = 'number'
     )
 
-fig = go.Figure()
-fig.append_trace(make_header('hello'), 1, 1)
-fig.show()
-
-#%%
 ###############
-# Departement KPI row
+# Full table
 ###############
 
-# les chiffres pour la France sont calculés une fois
-population_fr, pc_dose1_fr, pc_complet_fr, mm_injections_fr, inj_last7D_fr, inj_minus_1W_fr = compute_vacc_fr(79).values()
+def make_table(age=None):
 
-def make_kpi_row(dict_fr, dict_dep=None):
-    global vacc, departements
-    global population_fr, pc_dose1_fr, pc_complet_fr, mm_injections_fr
-
-    if dict_dep == None:
-        dep_nom = 'France'
-    else:
-        dep_nom = dict_dep['dep_nom']
-
-    fig = make_subplots(
-        rows=3, cols=4,
-        specs = [[None, None, {'type' : 'xy', 'rowspan' : 3}, {'type' : 'domain', 'rowspan' : 3}],
-                 [{'type' : 'domain'}, {'type' : 'domain'}, None, None],
-                 [None, None, None, None]],
-        column_widths = [2.5, 2.5, 1, 0.5],
-        row_heights = [1, 2.5, 1],
-        horizontal_spacing = 0.03,
-        vertical_spacing   = 0.03,
-        print_grid = False
-    )
-    if dict_dep == None: 
-        fig.append_trace(
-            make_bullet(dict_fr),
-            2, 1
-        )
-    else:
-        fig.append_trace(
-            make_bullet(dict_fr, dict_dep),
-            2, 1)
-    dep_nom = textwrap.wrap(dep_nom, width=15)
-    dep_nom = '<br>'.join(dep_nom)
-    fig.update_traces(
-        title = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}, 
-    )
-    if dict_dep == None: 
-        fig.append_trace(
-            make_bullet(dict_fr, dose=2),
-            2, 2 
-        )
-    else:
-        fig.append_trace(
-            make_bullet(dict_fr, dict_dep, dose=2),
-            2, 2
-        )
-    if dict_dep == None: 
-        fig.append_trace(
-            make_sparkline(dict_fr)[0],
-            1, 3
-        )
-        fig.add_trace(make_sparkline(dict_fr)[1])
-    else:
-        fig.append_trace(
-            make_sparkline(dict_dep)[0],
-            1, 3
-        )
-        fig.add_trace(make_sparkline(dict_dep)[1])
-
-    if dict_dep == None:
-        fig.append_trace(make_card(dict_fr), 1,4)
-    else:
-        fig.append_trace(make_card(dict_dep), 1,4)
-
-
-    fig.update_layout(
-        height= 40,
-        width = 650,
-        margin = {
-            'l' : 120, 
-            'r' : 30, 
-            't' : 5,
-            'b' : 5},
-        xaxis = {'visible' : False},
-        yaxis = {'visible' : False},
-        plot_bgcolor = 'rgba(0, 0, 0, 0)',
-        paper_bgcolor = 'rgba(0, 0, 0, 0)'
-        )
-    fig.update_xaxes(showticklabels=False)
-
-    fig.update_yaxes(showticklabels=False)
-    fig.show()
-    
-fr = compute_vacc_fr(69)
-for dep in ['01','02', '03', '04']:
-    make_kpi_row(fr, compute_vacc(dep, 69))
-
-#%%
-
-def make_age_table(age=None):
-    dict_fr = compute_vacc_fr(age)
-    dep_sorted = sort_dep(age)
-    
-    slice_of_dep = list(dep_sorted.keys())[:20]
-
-    make_kpi_row(dict_fr)
-    for dep in slice_of_dep:
-        make_kpi_row(dict_fr, compute_vacc(dep, age))
-
-make_age_table()
-
-#%%
-# les chiffres pour la France sont calculés une fois
-population_fr, pc_dose1_fr, pc_complet_fr, mm_injections_fr, inj_last7D_fr, inj_minus_1W_fr = compute_vacc_fr(79).values()
-
-def make_table(departements, vacc, age=None):
+    vacc, departements = load_format_data()
 
     n_rows = 10 * 3 + 3 # departements.shape[0] * 3 + 1
     n_cols = 4
@@ -486,13 +313,12 @@ def make_table(departements, vacc, age=None):
         vertical_spacing   = 0.02,
         print_grid = False
     )
-    dict_fr = compute_vacc_fr(age)
+    dict_fr = compute_vacc_fr(vacc, departements, age)
 
-    def make_row(dep_idx, fig=fig, dep=None, age=age):
-        global vacc, departements
+    def make_row(vacc, departements, dep_idx, fig=fig, dep=None, age=age):
 
         if dep != None:
-            dict_dep = compute_vacc(dep, age)
+            dict_dep = compute_vacc(vacc, departements, dep, age)
             dep_nom = dict_dep['dep_nom']
             # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
             mid_row = (dep_idx  + 1) * 3 + 2
@@ -545,11 +371,11 @@ def make_table(departements, vacc, age=None):
     listing = list(sorted_dep.keys())[:10]
 
     # France total row
-    make_row(-1)
+    make_row(vacc, departements, -1)
 
     # departements rows
     for idx, dep in enumerate(listing):
-        make_row(idx, dep=dep)
+        make_row(vacc, departements, idx, dep=dep)
 
     fig.update_layout(
         height= 500,
@@ -680,5 +506,3 @@ def make_table(departements, vacc, age=None):
         y = 1.1
     )
     fig.show()
-
-make_table(departements, vacc, 79)
