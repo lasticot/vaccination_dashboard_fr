@@ -294,15 +294,16 @@ def make_table(age=None):
 
     vacc, departements = load_format_data()
 
-    n_rows = 10 * 3 + 3 # departements.shape[0] * 3 + 1
+    n_dep = departements.shape[0]
+    n_rows =  n_dep * 3 + 3
     n_cols = 4
 
     row_specs = [[None               , None               , {'type' : 'xy', 'rowspan' : 3}, {'type' : 'domain', 'rowspan' : 3}],
                  [{'type' : 'domain'}, {'type' : 'domain'}, None                          , None                              ],
                  [None               , None               , None                          , None                              ]],
     
-    specs = row_specs[0] * 11
-    row_heights = [1, 4.5, 1] * 11
+    specs = row_specs[0] * n_dep
+    row_heights = [1, 4.5, 1] * n_dep
 
     fig = make_subplots(
         rows=n_rows, cols=n_cols,
@@ -368,13 +369,12 @@ def make_table(age=None):
             fig.append_trace(make_card(dict_fr), mid_row-1,4)
     
     sorted_dep = sort_dep(departements, vacc, age)
-    listing = list(sorted_dep.keys())[:10]
 
     # France total row
     make_row(vacc, departements, -1)
 
     # departements rows
-    for idx, dep in enumerate(listing):
+    for idx, dep in enumerate(sorted_dep):
         make_row(vacc, departements, idx, dep=dep)
 
     fig.update_layout(
@@ -405,7 +405,7 @@ def make_table(age=None):
             line_width = 0,
             opacity = 0.1
         )
-    for i in range(1,11,2)
+    for i in range(1,n_dep,2)
     ]
     bckgr.append(
             dict(
@@ -505,4 +505,4 @@ def make_table(age=None):
         x = 1.05,
         y = 1.1
     )
-    fig.show()
+    return fig
