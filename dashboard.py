@@ -57,126 +57,68 @@ def load_format_data():
 ###########
 # Values computation
 ###########
-def compute_vacc(vacc, departements, dep, age=None):
+def compute_vacc(vacc, dep_row):
     '''
-    Returns dictionary of vaccination values needed to draw bullet graphs and sparkline
-    aggregated by department and age. 
-    keys : 'population', 'dep_nom', 'pc_dose1', 'pc_complet', 'mm_injections', 'inj_last_7D', 'inj_minus_1W'
-    ++++++++++++++ Ajouter le calcul de l'objectif de 35M en juin +++++++++++
+    Iterated over rows of 'departements
+    Returns dictionary of vaccination values for each dep and age 
+    keys : 'population', 'dep', 'nom_dep', 'age', 'total_dose1', 'total_complet', 'injections'(Series)
     '''
-
-    # dep population and name
-    if age == None:
-        dep_age = departements[['dep', 'pop', 'nom_dep']].groupby(['dep', 'nom_dep'], as_index=False).sum()
-        dep_age = dep_age[dep_age['dep'] == dep].copy()
-        v_dep_age = vacc[['dep', 'jour', 'n_dose1', 'n_complet']].groupby(['dep', 'jour'], as_index=False).sum()
-        v_dep_age = v_dep_age[v_dep_age['dep'] == dep].copy()
-    else:
-        dep_age = departements[(departements['clage'] == age) & (departements['dep'] == dep)].copy()
-        v_dep_age = vacc[(vacc.clage_vacsi == age) & (vacc.dep == dep)][['jour', 'n_dose1', 'n_complet']].copy()
-
-    dep_pop = dep_age['pop'].iloc[0]
-    dep_nom = str(dep + ' - ' + dep_age['nom_dep'].iloc[0])
-
-    # filter dep and age in vacc
-
-    # Total number of injections by day 
-    v_dep_age['tot_inj'] = v_dep_age['n_dose1'] + v_dep_age['n_complet']
-    injections = v_dep_age[['jour', 'tot_inj']].copy().set_index('jour')
-    injections['mm7D'] = injections.rolling(7).mean()
-    # Keep last 30 days
-    injections = injections.tail(30).copy()
-
-    # nb of injections avg last 7 days
-    inj_last_7D = injections['mm7D'].iloc[-1]
-    # nb of injections avg 7 days before last 7 days
-    inj_last_7D_minus1W = injections['mm7D'].iloc[-8]
+    dep = dep_row['dep']
+    age = dep_row['clage']
+    # filter vacc on  dep and age
+    v_dep_age = vacc[(vacc['dep'] == dep) & (vacc['clage_vacsi'] == age)].copy()
 
     # total vaccinated
     total_dose1 = v_dep_age['n_dose1'].sum()
     total_complet =  v_dep_age['n_complet'].sum()
 
-    # vaccinated %
-    pc_dose1 = total_dose1 / dep_pop
-    pc_complet = total_complet / dep_pop
+    # Total number of injections by day 
+    v_dep_age['tot_inj'] = v_dep_age['n_dose1'] + v_dep_age['n_complet']
+    v_dep_age = v_dep_age[['jour', 'tot_inj']].copy().set_index('jour')
+
 
     return {
-        'population'    : dep_pop,
-        'dep_nom'       : dep_nom,
-        'pc_dose1'      : pc_dose1,
-        'pc_complet'    : pc_complet,
-        'mm_injections' : injections['mm7D'],
-        'inj_last_7D'   : inj_last_7D,
-        'inj_minus_1W'  : inj_last_7D_minus1W
-    }
-    
-def compute_vacc_fr(vacc, departements, age=None): 
-    '''
-    returns dictionary of vacc values for France
-    keys : 
-    'population', 'pc_dose1', 'pc_complet', 'mm_injections', 'inj_minus_1W'
-    '''
-
-    # total population for age group
-    if age == None:
-        fr_pop = departements['pop'].sum()
-        v_fr_age = vacc.groupby('jour', as_index=False).sum()[['jour', 'n_dose1', 'n_complet']]
-        v_fr_age['tot_inj'] = v_fr_age['n_dose1'] + v_fr_age['n_complet']
-        injections = v_fr_age[['jour', 'tot_inj']].copy().set_index('jour')
-    else:
-        fr_age = departements.groupby('clage').sum()
-        fr_pop = fr_age.loc[age,'pop']
-        # group by age in vacc
-        v_fr = vacc.groupby(['jour', 'clage_vacsi'], as_index=False).sum()[['jour', 'clage_vacsi', 'n_dose1', 'n_complet']]
-        # filtrer la classe d'âge sélectionnoée
-        v_fr_age = v_fr[v_fr['clage_vacsi'] == age].copy()
-        # Total number of injections
-        v_fr_age['tot_inj'] = v_fr_age['n_dose1'] + v_fr_age['n_complet']
-        injections = v_fr_age[['jour', 'tot_inj']].copy().set_index('jour')
-
-    injections['mm7D'] = injections.rolling(7).mean()
-    # keep last 30 days
-    injections = injections.tail(30).copy()
-     
-    # nb of injections avg last 7 days
-    inj_last_7D = injections['mm7D'].iloc[-1]
-    # nb of injections avg 7 days before last 7 days
-    inj_last_7D_minus1W = injections['mm7D'].iloc[-8]
-
-    # total vaccinated
-    total_dose1 = v_fr_age['n_dose1'].sum()
-    total_complet =  v_fr_age['n_complet'].sum()
-
-    # vaccinated %
-    if fr_pop != 0:
-        pc_dose1 = total_dose1 / fr_pop
-        pc_complet = total_complet / fr_pop
-    else:
-        pc_dose1, pc_complet = 'nan', 'nan'
-
-    return {
-        'population'    : fr_pop,
-        'pc_dose1'      : pc_dose1,
-        'pc_complet'    : pc_complet,
-        'mm_injections' : injections['mm7D'],
-        'inj_last_7D'   : inj_last_7D,
-        'inj_minus_1W'  : inj_last_7D_minus1W
+        'population'    : dep_row['pop'],
+        'dep'           : dep,
+        'nom_dep'       : f"{dep} - {dep_row['nom_dep']}",
+        'age'           : age,
+        'total_dose1'   : total_dose1,
+        'total_complet' : total_complet,
+        'injections'    : v_dep_age 
     }
 
-def sort_dep(departements, vacc, age=None):
+def compute_agg(computed_vacc, by=None):
     '''
-    Sort dep by pc of dose1
+    Computes aggregated values for:
+    - all deps by age
+    - all ages by dep
+    - all deps all ages
     '''
 
-    all_dep_complet = []
+    if by == 'dep':
+        agg = computed_vacc[['dep', 'age', 'population', 'total_dose1', 'total_complet', 'injections']].groupby('dep').apply(sum)
+        agg = agg.drop(columns=['dep', 'age'])
+    elif by == 'age':
+        agg = computed_vacc[['dep', 'nom_dep', 'age', 'population', 'total_dose1', 'total_complet', 'injections']].groupby('age').apply(sum)
+        agg = agg.drop(columns=['age', 'dep', 'nom_dep'])
+    else:
+        agg = computed_vacc[['population', 'total_dose1', 'total_complet', 'injections']].apply(sum)
+        agg = agg.drop(columns=['dep', 'age'])
 
-    for dep in vacc.dep.unique():
-        all_dep_complet.append(compute_vacc(vacc, departements, dep, age)['pc_complet'])
-    dep_names = vacc.dep.unique()
-    dep_names_doses = OrderedDict(zip(dep_names, all_dep_complet))
-    dep_names_doses_sorted = {k:v for k,v in sorted(dep_names_doses.items(), key=lambda item : item[1], reverse=True)}
+    return agg
 
-    return dep_names_doses_sorted
+def compute_avg(df):
+    '''
+    iterated over tables
+    Add columns for percentages, and rolling avg of total injections for last 30 days
+    '''
+    df['pc_dose1'] = df['total_dose1'] / df['population']
+    df['pc_complet'] = df['total_complet']  / df['population']
+
+    mm_injections = df['injections'].rolling(7).mean()
+    df['mm_injections'] = mm_injections
+
+    return df
 
 ################
 # bullet chart
@@ -302,8 +244,8 @@ def make_table(age=None):
                  [{'type' : 'domain'}, {'type' : 'domain'}, None                          , None                              ],
                  [None               , None               , None                          , None                              ]],
     
-    specs = row_specs[0] * n_dep
-    row_heights = [1, 4.5, 1] * n_dep
+    specs = row_specs[0] * (n_dep + 1)
+    row_heights = [1, 4.5, 1] * (n_dep + 1)
 
     fig = make_subplots(
         rows=n_rows, cols=n_cols,
@@ -311,7 +253,7 @@ def make_table(age=None):
         column_widths = [2.5, 2.5, 1, 0.5],
         row_heights = row_heights,
         horizontal_spacing = 0.03,
-        vertical_spacing   = 0.02,
+        vertical_spacing   = 0.0,
         print_grid = False
     )
     dict_fr = compute_vacc_fr(vacc, departements, age)
@@ -378,7 +320,7 @@ def make_table(age=None):
         make_row(vacc, departements, idx, dep=dep)
 
     fig.update_layout(
-        height= 500,
+        height= 50 * (n_rows + 1),
         width = 750,
         margin = {
             'l' : 120, 
@@ -506,3 +448,5 @@ def make_table(age=None):
         y = 1.1
     )
     return fig
+#%%
+make_table(49)
