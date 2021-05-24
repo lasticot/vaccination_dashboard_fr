@@ -103,7 +103,7 @@ def compute_agg(computed_vacc, by=None):
         agg = agg.drop(columns=['age', 'dep'])
         agg['nom_dep'] = 'France'
     else:
-        agg = pd.DataFrame(computed_vacc[['nom_dep', 'population', 'total_dose1', 'total_complet', 'injections']]).sum().T
+        agg = pd.DataFrame(computed_vacc[['nom_dep', 'population', 'total_dose1', 'total_complet', 'injections']].sum()).T
         agg['nom_dep'] = 'France'
 
     return agg
@@ -116,7 +116,7 @@ def compute_avg(df):
     df['pc_dose1'] = df['total_dose1'] / df['population']
     df['pc_complet'] = df['total_complet']  / df['population']
 
-    mm_injections = df['injections'].rolling(7).mean()
+    mm_injections = df['injections'].iloc[0].rolling(7).mean()
     # keep last 30 days
     df['mm_injections'] = mm_injections.tail(30).copy()
 
@@ -152,25 +152,25 @@ def compute_all():
 # bullet chart
 ################
 
-def make_bullet(dep_fr, dep = None, dose=1):
+def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
     '''
     Input : dict of 2 dataframes (by dep, france) already filtered for the relevant age
     Returns a bullet chart go 
     '''     
-    if dep == None:
-        dep_nom = 'France'
-        if dose==1:
-            score, target = dep_fr['fr']['pc_dose1'], 1
-        elif dose==2:
-            score, target = dep_fr['fr']['pc_complet'], 1
-    else:
-        dep_nom = dep_fr['dep']['dep_nom']
+    if dep:
+        dep_nom = df_dep['dep_nom']
         dep_nom = '<br>'.join(dep_nom)
        
         if dose==1:
-            score, target = dep_fr['dep']['pc_dose1'], dep_fr['fr']['pc_dose1']
+            score, target = df_dep['pc_dose1'], df_fr['pc_dose1']
         elif dose==2:
-            score, target = dep_fr['dep']['pc_complet'], dep_fr['fr']['pc_complet']
+            score, target = df_dep['pc_complet'], df_fr['pc_complet']
+    else:
+        dep_nom = 'France'
+        if dose==1:
+            score, target = df_fr['pc_dose1'], 1
+        elif dose==2:
+            score, target = df_fr['pc_complet'], 1
 
     chart = go.Indicator(
         value = score,
@@ -255,15 +255,13 @@ def make_table(data, age=None):
 
     if age:
         all = data['all']
-        dep = all[all['age'] == age].sort_values(by='pc_complet').reset_index()
-        france = data['by_age'].loc[age,:]
+        df_all_dep = all[all['age'] == age].sort_values(by='pc_complet').reset_index()
+        df_france = data['by_age'].loc[age,:]
     else:
-        dep = data['by_dep'].sort_values(by='pc_complet').reset_index()
-        france = data['france']
+        df_all_dep = data['by_dep'].sort_values(by='pc_complet').reset_index()
+        df_france = data['france']
     
-    dfs = {'dep': dep, 'fr': france}
-
-    n_dep = 10 # dep.shape[0]
+    n_dep = 10 # df_dep.shape[0]
     n_rows =  n_dep * 3 + 3
     n_cols = 4
 
@@ -284,18 +282,17 @@ def make_table(data, age=None):
         print_grid = False
     )
 
-    def make_row(dfs, idx=None, dep=None):
+    def make_row(df_france, df_all_dep=None, idx=None, dep=None):
         '''
-        values : dict containing 2 df ('dep', 'fr')
         '''
 
         if dep:
-            df = dfs['dep']
+            df = df_all_dep[df_all_dep['dep'] == dep]
             dep_nom = df['nom_dep']
             # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
             mid_row = (idx  + 1) * 3 + 2
         else:
-            df = dfs['fr']
+            df = df_france
             dep_nom = df['nom_dep']
             mid_row = 2
 
@@ -303,14 +300,14 @@ def make_table(data, age=None):
         dep_nom = '<br>'.join(dep_nom)
 
         fig.append_trace(
-            make_bullet(dfs, dep, dose=1),
+            make_bullet(df_france, df, dep, dose=1),
             mid_row, 1)
 
         # fig.update_traces(
         #     title = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}, 
         # )
         fig.append_trace(
-            make_bullet(dfs, dep, dose=2),
+            make_bullet(df_france, df, dep, dose=2),
             mid_row, 2
         )
         fig.append_trace(
@@ -320,17 +317,17 @@ def make_table(data, age=None):
         fig.update_xaxes(visible=False, showgrid=False)
         fig.update_yaxes(visible=False, showgrid=False)
         fig.add_trace(make_sparkline(df)[1], mid_row-1, 3)
-        min_inj = min(df['mm_injections']) - 100
-        max_inj = max(df['mm_injections']) + 100
+        min_inj = min(df['mm_injections'].values) - 100
+        max_inj = max(df['mm_injections'].values) + 100
         fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
-        fig.append_trace(make_card(df), mid_row-1,4)
+        fig.append_trace(make_card(df['mm_injections'].values), mid_row-1,4)
 
     # France total row
-    make_row(dfs)
+    make_row(df_france)
 
     # departements rows
-    for idx, dep in enumerate(dfs['dep']['dep']):
-        make_row(dfs, idx, dep)
+    for idx, dep in enumerate(df_all_dep):
+        make_row(df_france, df_all_dep, idx, dep)
 
     fig.update_layout(
         height= 50 * (n_rows + 1),
@@ -386,7 +383,6 @@ def make_table(data, age=None):
             t = 80
         )
     )
-
 
     fig.add_annotation(
         text = "Pourcentage de la population<br>ayant reçu...",
@@ -462,5 +458,5 @@ def make_table(data, age=None):
     )
     return fig
 #%%
-result = compute_all()
+# result = compute_all()
 make_table(result, 49).show()
