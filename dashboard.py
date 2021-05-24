@@ -148,12 +148,11 @@ def compute_all():
         'france' : france
     }
 
-#%%
 ################
 # bullet chart
 ################
 
-def make_bullet(dict, dep = None, dose=1):
+def make_bullet(dep_fr, dep = None, dose=1):
     '''
     Input : dict of 2 dataframes (by dep, france) already filtered for the relevant age
     Returns a bullet chart go 
@@ -161,17 +160,17 @@ def make_bullet(dict, dep = None, dose=1):
     if dep == None:
         dep_nom = 'France'
         if dose==1:
-            score, target = dict['fr']['pc_dose1'], 1
+            score, target = dep_fr['fr']['pc_dose1'], 1
         elif dose==2:
-            score, target = dict['fr']['pc_complet'], 1
+            score, target = dep_fr['fr']['pc_complet'], 1
     else:
-        dep_nom = dict['dep']['dep_nom']
+        dep_nom = dep_fr['dep']['dep_nom']
         dep_nom = '<br>'.join(dep_nom)
        
         if dose==1:
-            score, target = dict['dep']['pc_dose1'], dict['fr']['pc_dose1']
+            score, target = dep_fr['dep']['pc_dose1'], dep_fr['fr']['pc_dose1']
         elif dose==2:
-            score, target = dict['dep']['pc_complet'], dict['fr']['pc_complet']
+            score, target = dep_fr['dep']['pc_complet'], dep_fr['fr']['pc_complet']
 
     chart = go.Indicator(
         value = score,
@@ -249,17 +248,22 @@ def make_card(df):
 # Full table
 ###############
 
-def make_table(dict, age=None):
+def make_table(data, age=None):
+    '''
+    data is the output of compute_all()
+    '''
 
     if age:
-        all = dict['all']
+        all = data['all']
         dep = all[all['age'] == age].sort_values(by='pc_complet').reset_index()
-        france = dict['by_age'].loc[age,:]
+        france = data['by_age'].loc[age,:]
     else:
-        dep = dict['by_dep'].sort_values(by='pc_complet').reset_index()
-        france = dict['france']
+        dep = data['by_dep'].sort_values(by='pc_complet').reset_index()
+        france = data['france']
+    
+    dfs = {'dep': dep, 'fr': france}
 
-    n_dep = dep.shape[0]
+    n_dep = 10 # dep.shape[0]
     n_rows =  n_dep * 3 + 3
     n_cols = 4
 
@@ -280,64 +284,53 @@ def make_table(dict, age=None):
         print_grid = False
     )
 
-    def make_row(idx, values):
+    def make_row(dfs, idx=None, dep=None):
+        '''
+        values : dict containing 2 df ('dep', 'fr')
+        '''
 
-        dep_nom = values['nom_dep']
-        # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
-        mid_row = (idx  + 1) * 3 + 2
+        if dep:
+            df = dfs['dep']
+            dep_nom = df['nom_dep']
+            # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
+            mid_row = (idx  + 1) * 3 + 2
+        else:
+            df = dfs['fr']
+            dep_nom = df['nom_dep']
+            mid_row = 2
 
-        fig.append_trace(
-            make_bullet((dict_fr, dict_dep),
-            mid_row, 1)
         dep_nom = textwrap.wrap(dep_nom, width=15)
         dep_nom = '<br>'.join(dep_nom)
+
+        fig.append_trace(
+            make_bullet(dfs, dep, dose=1),
+            mid_row, 1)
+
         # fig.update_traces(
         #     title = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}, 
         # )
         fig.append_trace(
-            make_bullet(dict_fr, dict_dep, dose=2),
+            make_bullet(dfs, dep, dose=2),
             mid_row, 2
         )
         fig.append_trace(
-            make_sparkline(dict_dep)[0],
+            make_sparkline(df)[0],
             mid_row-1, 3
         )
         fig.update_xaxes(visible=False, showgrid=False)
         fig.update_yaxes(visible=False, showgrid=False)
-        fig.add_trace(make_sparkline(dict_dep)[1], mid_row-1, 3)
-        min_inj = min(dict_dep['mm_injections']) - 100
-        max_inj = max(dict_dep['mm_injections']) + 100
+        fig.add_trace(make_sparkline(df)[1], mid_row-1, 3)
+        min_inj = min(df['mm_injections']) - 100
+        max_inj = max(df['mm_injections']) + 100
         fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
-        fig.append_trace(make_card(dict_dep), mid_row-1,4)
-        else:
-            dep_nom = "France"
-            mid_row = 2
-            fig.append_trace(
-                make_bullet(dict_fr),
-                mid_row, 1
-            )
-            fig.append_trace(
-                make_bullet(dict_fr, dose=2),
-                mid_row, 2 
-            )
-            fig.append_trace(
-                make_sparkline(dict_fr)[0],
-                mid_row-1, 3
-            )
-            fig.add_trace(make_sparkline(dict_fr)[1])
-            min_inj = min(dict_fr['mm_injections']) - 500
-            max_inj = max(dict_fr['mm_injections']) + 500
-            fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
-            fig.append_trace(make_card(dict_fr), mid_row-1,4)
-    
-    sorted_dep = sort_dep(departements, vacc, age)
+        fig.append_trace(make_card(df), mid_row-1,4)
 
     # France total row
-    make_row(vacc, departements, -1)
+    make_row(dfs)
 
     # departements rows
-    for idx, dep in enumerate(sorted_dep):
-        make_row(vacc, departements, idx, dep=dep)
+    for idx, dep in enumerate(dfs['dep']['dep']):
+        make_row(dfs, idx, dep)
 
     fig.update_layout(
         height= 50 * (n_rows + 1),
@@ -469,4 +462,5 @@ def make_table(dict, age=None):
     )
     return fig
 #%%
-make_table(49)
+result = compute_all()
+make_table(result, 49).show()
