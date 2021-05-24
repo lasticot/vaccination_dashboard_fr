@@ -100,10 +100,11 @@ def compute_agg(computed_vacc, by=None):
         agg = agg.drop(columns=['dep', 'age'])
     elif by == 'age':
         agg = computed_vacc[['dep', 'nom_dep', 'age', 'population', 'total_dose1', 'total_complet', 'injections']].groupby('age').apply(sum)
-        agg = agg.drop(columns=['age', 'dep', 'nom_dep'])
+        agg = agg.drop(columns=['age', 'dep'])
+        agg['nom_dep'] = 'France'
     else:
-        agg = computed_vacc[['population', 'total_dose1', 'total_complet', 'injections']].apply(sum)
-        agg = agg.drop(columns=['dep', 'age'])
+        agg = pd.DataFrame(computed_vacc[['nom_dep', 'population', 'total_dose1', 'total_complet', 'injections']]).sum().T
+        agg['nom_dep'] = 'France'
 
     return agg
 
@@ -116,7 +117,8 @@ def compute_avg(df):
     df['pc_complet'] = df['total_complet']  / df['population']
 
     mm_injections = df['injections'].rolling(7).mean()
-    df['mm_injections'] = mm_injections
+    # keep last 30 days
+    df['mm_injections'] = mm_injections.tail(30).copy()
 
     return df
 
@@ -137,7 +139,7 @@ def compute_all():
     all = computed_vacc.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
     by_dep = by_dep.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
     by_age = by_age.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
-    france = france.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
+    france = compute_avg(france)
 
     return {
         'all'    : all, 
@@ -146,33 +148,31 @@ def compute_all():
         'france' : france
     }
 
+#%%
 ################
 # bullet chart
 ################
 
-def make_bullet(dict_fr, dict_dep = None, dose=1, first_col=False):
+def make_bullet(dict, dep = None, dose=1):
     '''
+    Input : dict of 2 dataframes (by dep, france) already filtered for the relevant age
     Returns a bullet chart go 
     '''     
-    if dose==1:
-        if dict_dep == None:
-            score, target = dict_fr['pc_dose1'], 1
-        else:
-            score, target = dict_dep['pc_dose1'], dict_fr['pc_dose1']
-    elif dose==2:
-        if dict_dep == None:
-            score, target = dict_fr['pc_complet'], 1
-        else:
-            score, target = dict_dep['pc_complet'], dict_fr['pc_complet']
-    
-    if dict_dep == None:
+    if dep == None:
         dep_nom = 'France'
+        if dose==1:
+            score, target = dict['fr']['pc_dose1'], 1
+        elif dose==2:
+            score, target = dict['fr']['pc_complet'], 1
     else:
-        dep_nom = dict_dep['dep_nom']
-        dep_nom = textwrap.wrap(dep_nom, width=15)
+        dep_nom = dict['dep']['dep_nom']
         dep_nom = '<br>'.join(dep_nom)
+       
+        if dose==1:
+            score, target = dict['dep']['pc_dose1'], dict['fr']['pc_dose1']
+        elif dose==2:
+            score, target = dict['dep']['pc_complet'], dict['fr']['pc_complet']
 
-    # global quartile_1, quartile_complet
     chart = go.Indicator(
         value = score,
         number = {'font' : {'size' : 14}, 'valueformat' : '0%'},
@@ -191,8 +191,6 @@ def make_bullet(dict_fr, dict_dep = None, dose=1, first_col=False):
             },
             'steps' : [
                 {'range' : [0, 1], 'color' : '#ECEFFE'},
-            #     {'range' : [quartile_1[0], quartile_1[2]], 'color' : '#D8DEFE'},
-            #     {'range' : [quartile_1[2], 1], 'color' : '#ECEFFE'}
             ]
         },
         domain = {'x' : [0,1], 'y' : [0,1]}
@@ -203,13 +201,12 @@ def make_bullet(dict_fr, dict_dep = None, dose=1, first_col=False):
 
 ##############
 #Sparklines
-#############
+##############
 
-def make_sparkline(dict):
+def make_sparkline(df):
     '''
     Returns a sparkline go
     '''
-    df = dict['mm_injections']
     # global values
     sparkline = go.Scatter(
         x = df.index,
@@ -233,9 +230,9 @@ def make_sparkline(dict):
 # Card
 ################
 
-def make_card(dict):
-    last_week = dict['inj_last_7D']
-    minus_1W = dict['inj_minus_1W']
+def make_card(df):
+    last_week = df[-1]
+    minus_1W = df[-8]
 
     card = go.Indicator(
         value = last_week,
@@ -248,21 +245,21 @@ def make_card(dict):
     )
     return card
 
-def make_header(title):
-    header = go.Indicator(
-        title = 'ceci est un titre', 
-        mode = 'number'
-    )
-
 ###############
 # Full table
 ###############
 
-def make_table(age=None):
+def make_table(dict, age=None):
 
-    vacc, departements = load_format_data()
+    if age:
+        all = dict['all']
+        dep = all[all['age'] == age].sort_values(by='pc_complet').reset_index()
+        france = dict['by_age'].loc[age,:]
+    else:
+        dep = dict['by_dep'].sort_values(by='pc_complet').reset_index()
+        france = dict['france']
 
-    n_dep = departements.shape[0]
+    n_dep = dep.shape[0]
     n_rows =  n_dep * 3 + 3
     n_cols = 4
 
@@ -282,39 +279,36 @@ def make_table(age=None):
         vertical_spacing   = 0.0,
         print_grid = False
     )
-    dict_fr = compute_vacc_fr(vacc, departements, age)
 
-    def make_row(vacc, departements, dep_idx, fig=fig, dep=None, age=age):
+    def make_row(idx, values):
 
-        if dep != None:
-            dict_dep = compute_vacc(vacc, departements, dep, age)
-            dep_nom = dict_dep['dep_nom']
-            # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
-            mid_row = (dep_idx  + 1) * 3 + 2
+        dep_nom = values['nom_dep']
+        # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
+        mid_row = (idx  + 1) * 3 + 2
 
-            fig.append_trace(
-                make_bullet(dict_fr, dict_dep),
-                mid_row, 1)
-            dep_nom = textwrap.wrap(dep_nom, width=15)
-            dep_nom = '<br>'.join(dep_nom)
-            # fig.update_traces(
-            #     title = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}, 
-            # )
-            fig.append_trace(
-                make_bullet(dict_fr, dict_dep, dose=2),
-                mid_row, 2
-            )
-            fig.append_trace(
-                make_sparkline(dict_dep)[0],
-                mid_row-1, 3
-            )
-            fig.update_xaxes(visible=False, showgrid=False)
-            fig.update_yaxes(visible=False, showgrid=False)
-            fig.add_trace(make_sparkline(dict_dep)[1], mid_row-1, 3)
-            min_inj = min(dict_dep['mm_injections']) - 100
-            max_inj = max(dict_dep['mm_injections']) + 100
-            fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
-            fig.append_trace(make_card(dict_dep), mid_row-1,4)
+        fig.append_trace(
+            make_bullet((dict_fr, dict_dep),
+            mid_row, 1)
+        dep_nom = textwrap.wrap(dep_nom, width=15)
+        dep_nom = '<br>'.join(dep_nom)
+        # fig.update_traces(
+        #     title = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}, 
+        # )
+        fig.append_trace(
+            make_bullet(dict_fr, dict_dep, dose=2),
+            mid_row, 2
+        )
+        fig.append_trace(
+            make_sparkline(dict_dep)[0],
+            mid_row-1, 3
+        )
+        fig.update_xaxes(visible=False, showgrid=False)
+        fig.update_yaxes(visible=False, showgrid=False)
+        fig.add_trace(make_sparkline(dict_dep)[1], mid_row-1, 3)
+        min_inj = min(dict_dep['mm_injections']) - 100
+        max_inj = max(dict_dep['mm_injections']) + 100
+        fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
+        fig.append_trace(make_card(dict_dep), mid_row-1,4)
         else:
             dep_nom = "France"
             mid_row = 2
