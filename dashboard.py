@@ -120,6 +120,32 @@ def compute_avg(df):
 
     return df
 
+def compute_all():
+    '''
+    computes all tables
+    output dict, keys : 'all', 'by_dep', 'by_age', 'france'
+    '''
+
+    vacc, departements = load_format_data()
+
+    computed_vacc = departements.apply(lambda x: compute_vacc(vacc, x), axis=1, result_type='expand')
+
+    by_dep = compute_agg(computed_vacc, by='dep')
+    by_age = compute_agg(computed_vacc, by='age')
+    france  = compute_agg(computed_vacc)
+
+    all = computed_vacc.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
+    by_dep = by_dep.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
+    by_age = by_age.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
+    france = france.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
+
+    return {
+        'all'    : all, 
+        'by_dep' : by_dep, 
+        'by_age' : by_age, 
+        'france' : france
+    }
+
 ################
 # bullet chart
 ################
