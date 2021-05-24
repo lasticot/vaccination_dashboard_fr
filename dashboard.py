@@ -116,7 +116,7 @@ def compute_avg(df):
     df['pc_dose1'] = df['total_dose1'] / df['population']
     df['pc_complet'] = df['total_complet']  / df['population']
 
-    mm_injections = df['injections'].iloc[0].rolling(7).mean()
+    mm_injections = df['injections'].rolling(7).mean()
     # keep last 30 days
     df['mm_injections'] = mm_injections.tail(30).copy()
 
@@ -139,7 +139,7 @@ def compute_all():
     all = computed_vacc.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
     by_dep = by_dep.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
     by_age = by_age.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
-    france = compute_avg(france)
+    france = france.apply(lambda x: compute_avg(x), axis=1, result_type='expand')
 
     return {
         'all'    : all, 
