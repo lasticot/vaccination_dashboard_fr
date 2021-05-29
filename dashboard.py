@@ -3,10 +3,13 @@ from collections import OrderedDict
 import textwrap
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
 
+colors = {
+    'bullet_bk' : 'lightblue',
+    'bullet_bar': 'darkblue',
+    'sparkline' : 'darkblue'
+}
 #######
 # chargement et formattage des data
 #######
@@ -155,7 +158,38 @@ def compute_all():
 # bullet chart
 ################
 
-def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
+def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
+    if dep:
+        # nom_dep = textwrap.wrap(nom_dep, width=15)
+        # nom_dep = '<br>'.join(nom_dep)
+       
+        if dose==1:
+            score, target = df_dep['pc_dose1'].iloc[0], df_fr['pc_dose1'].iloc[0]
+        elif dose==2:
+            score, target = df_dep['pc_complet'].iloc[0], df_fr['pc_complet'].iloc[0]
+    else:
+        if dose==1:
+            score, target = df_fr['pc_dose1'].iloc[0], 1
+        elif dose==2:
+            score, target = df_fr['pc_complet'].iloc[0], 1
+
+    ax.barh(0.5, score)
+    ax.set_xlim([0,1])
+    ax.set_facecolor(color='lightblue')
+    plt.xticks([])
+    plt.yticks([])
+
+    ax.text(x=1.1, y=0.5, s=f'{score:.2%}', fontsize=14)
+
+    return ax
+
+fig, ax = plt.subplots()
+
+make_bullet(ax, result['france'])
+
+
+#%%
+def make_bullet_plotly(df_fr, df_dep=None, dep=None, dose=1):
     '''
     Input : dict of 2 dataframes (by dep, france) already filtered for the relevant age
     Returns a bullet chart go 
@@ -210,7 +244,22 @@ def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
 #Sparklines
 ##############
 
-def make_sparkline(df):
+def make_sparkline(ax, df):
+    markers_on = [-1]
+    ax.plot(df, '-o', color=colors['sparkline'], markevery=markers_on)
+    ax.fill_between(df.index, df.min(), df.iloc[:,0], color=colors['sparkline'], 
+        alpha = 0.2)
+    ax.axis('off')
+    ax.margins(y=0.6)
+    return ax
+
+fig, ax = plt.subplots()
+
+make_sparkline(ax, result['france']['mm_injections'].iloc[0])
+
+
+#%%
+def make_sparkline_plotly(df):
     '''
     Returns a sparkline go
     '''
@@ -225,13 +274,13 @@ def make_sparkline(df):
     )
 
     last_point = go.Scatter(
-        x = [df.index[-1]],
-        y = [df.iloc[-1]],
+        x = df.index[[-1]],
+        y = df.iloc[[-1]],
         mode = 'markers',
-        marker = {'size' : 5, 'color' : '#4259D6' },
+        marker = {'size' : 15, 'color' : '#4259D6' },
         showlegend = False
     )
-    return sparkline, last_point
+    return sparkline, last_point 
 
 ################
 # Card
@@ -284,7 +333,7 @@ def make_table(input_data, age=None):
                  [None               , None               , None                          , None                              ]],
     
     specs = row_specs[0] * (n_dep + 1)
-    row_heights = [1, 4.5, 1] * (n_dep + 1)
+    row_heights = [1, 1, 1] * (n_dep + 1)
 
     fig = make_subplots(
         rows=n_rows, cols=n_cols,
@@ -324,19 +373,25 @@ def make_table(input_data, age=None):
             make_sparkline(df_inj)[0],
             mid_row-1, 3
         )
+        # fig.add_trace(make_sparkline(df_inj)[1], mid_row-1, 3)
         fig.update_xaxes(visible=False, showgrid=False)
         fig.update_yaxes(visible=False, showgrid=False)
-        fig.add_trace(make_sparkline(df_inj)[1], mid_row-1, 3)
-        min_inj = min(df['mm_injections'].iloc[0]['tot_inj']) - 100
-        max_inj = max(df['mm_injections'].iloc[0]['tot_inj']) + 100
-        fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
+        min_inj = min(df['mm_injections'].iloc[0]['tot_inj'])
+        max_inj = max(df['mm_injections'].iloc[0]['tot_inj'])
+        amplitude = (max_inj - min_inj)/min_inj 
+        if amplitude <= 0.1:
+            range = [min_inj * 0.9, min_inj * (amplitude + 1.01)]
+        else:
+            range = [min_inj * 0.9, max_inj * (amplitude + 1.01)]
+        print(range)
+        fig.update_yaxes(range=range, row=mid_row-1, col=3)
         fig.append_trace(make_card(df_inj), mid_row-1,4)
 
     # France total row
     make_row(fig, df_france)
 
     # departements rows
-    for idx, dep in enumerate(df_all_dep['dep'].unique()[:10]):
+    for idx, dep in enumerate(df_all_dep['dep'].unique()[:n_dep]):
         make_row(fig, df_france, df_all_dep, idx, dep)
 
     fig.update_layout(
@@ -360,8 +415,8 @@ def make_table(input_data, age=None):
             yref = 'paper', 
             x0 = -0.5,
             x1 = 1.2,
-            y0 = i/11,
-            y1 = (i+1)/11,
+            y0 = i/(n_dep + 1),
+            y1 = (i+1)/(n_dep + 1),
             fillcolor = 'grey',
             layer = 'below',
             line_width = 0,
@@ -470,7 +525,7 @@ def make_table(input_data, age=None):
 #%%
 result = compute_all()
 #%%
-fig = make_table(result, 79)
+fig = make_table(result, 49)
 fig.show() 
 # fig.show()
 
