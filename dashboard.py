@@ -296,8 +296,6 @@ def make_table(input_data, age=None):
         print_grid = False
     )
 
-    fig.print_grid
-
     def make_row(fig, df_france, df_all_dep=None, idx=None, dep=None):
         '''
         '''
@@ -314,16 +312,10 @@ def make_table(input_data, age=None):
             # nom_dep = df['nom_dep']
             mid_row = 2
 
-        # nom_dep = textwrap.wrap(nom_dep, width=15)
-        # nom_dep = '<br>'.join(nom_dep)
-
         fig.append_trace(
             make_bullet(df_france, df, dep, dose=1),
             mid_row, 1)
 
-        # fig.update_traces(
-        #     title = {'text' : nom_dep, 'align' : 'left', 'font' : {'size' : 14}}, 
-        # )
         fig.append_trace(
             make_bullet(df_france, df, dep, dose=2),
             mid_row, 2
@@ -345,7 +337,6 @@ def make_table(input_data, age=None):
 
     # departements rows
     for idx, dep in enumerate(df_all_dep['dep'].unique()[:10]):
-        make_row(fig, df_france)
         make_row(fig, df_france, df_all_dep, idx, dep)
 
     fig.update_layout(
