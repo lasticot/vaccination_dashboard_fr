@@ -162,6 +162,7 @@ def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
     '''     
     if dep:
         nom_dep = df_dep[df_dep['dep'] == dep]['nom_dep'].iloc[0]
+        nom_dep = textwrap.wrap(nom_dep, width=15)
         nom_dep = '<br>'.join(nom_dep)
        
         if dose==1:
@@ -198,8 +199,6 @@ def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
         domain = {'x' : [0,1], 'y' : [0,1]}
     )
     if dose == 1:
-        nom_dep = textwrap.wrap(nom_dep, width=35)
-        nom_dep = '<br>'.join(nom_dep)
         chart['title'] = {'text' : nom_dep, 'align' : 'left', 'font' : {'size' : 14}}
         print(nom_dep)
     return chart
@@ -271,10 +270,10 @@ def make_table(input_data, age=None):
 
     if age:
         all = input_data['all']
-        df_all_dep = all[all['age'] == age].sort_values(by='pc_complet').reset_index()
+        df_all_dep = all[all['age'] == age].sort_values(by='pc_complet', ascending=False).reset_index()
         df_france = input_data['by_age'].loc[[age]]
     else:
-        df_all_dep = input_data['by_dep'].sort_values(by='pc_complet').reset_index()
+        df_all_dep = input_data['by_dep'].sort_values(by='pc_complet', ascending=False).reset_index()
         df_france = input_data['france']
     
     n_dep = 10  # df_all_dep.shape[0]
