@@ -198,7 +198,10 @@ def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
         domain = {'x' : [0,1], 'y' : [0,1]}
     )
     if dose == 1:
+        nom_dep = textwrap.wrap(nom_dep, width=35)
+        nom_dep = '<br>'.join(nom_dep)
         chart['title'] = {'text' : nom_dep, 'align' : 'left', 'font' : {'size' : 14}}
+        print(nom_dep)
     return chart
 # result = compute_all()
 # fig = go.Figure()
@@ -216,7 +219,7 @@ def make_sparkline(df):
     # global values
     sparkline = go.Scatter(
         x = df.index,
-        y = df,
+        y = df.iloc[:,0],
         marker_color = '#4259D6',
         fill = 'tozeroy',
         fillcolor = 'rgba(66, 89, 214, 0.2)',
@@ -274,7 +277,7 @@ def make_table(input_data, age=None):
         df_all_dep = input_data['by_dep'].sort_values(by='pc_complet').reset_index()
         df_france = input_data['france']
     
-    n_dep = df_all_dep.shape[0]
+    n_dep = 10  # df_all_dep.shape[0]
     n_rows =  n_dep * 3 + 3
     n_cols = 4
 
@@ -311,15 +314,15 @@ def make_table(input_data, age=None):
             # nom_dep = df['nom_dep']
             mid_row = 2
 
-        # dep_nom = textwrap.wrap(dep_nom, width=15)
-        # dep_nom = '<br>'.join(dep_nom)
+        # nom_dep = textwrap.wrap(nom_dep, width=15)
+        # nom_dep = '<br>'.join(nom_dep)
 
         fig.append_trace(
             make_bullet(df_france, df, dep, dose=1),
             mid_row, 1)
 
         # fig.update_traces(
-        #     title = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}, 
+        #     title = {'text' : nom_dep, 'align' : 'left', 'font' : {'size' : 14}}, 
         # )
         fig.append_trace(
             make_bullet(df_france, df, dep, dose=2),
@@ -341,11 +344,12 @@ def make_table(input_data, age=None):
     make_row(fig, df_france)
 
     # departements rows
-    for idx, dep in enumerate(df_all_dep['dep'].unique()):
+    for idx, dep in enumerate(df_all_dep['dep'].unique()[:10]):
+        make_row(fig, df_france)
         make_row(fig, df_france, df_all_dep, idx, dep)
 
     fig.update_layout(
-        height= 50 * (n_rows + 1),
+        height= 15 * (n_rows + 1),
         width = 750,
         margin = {
             'l' : 120, 
@@ -475,9 +479,8 @@ def make_table(input_data, age=None):
 #%%
 result = compute_all()
 #%%
-fig = make_table(result, 49)
-#%%
-figdict = fig.to_dict()
+fig = make_table(result, 79)
+fig.show() 
 # fig.show()
 
 #%%
@@ -495,9 +498,13 @@ fig.show()
 #%%
 
 fig = go.Figure()
-fig.add_trace(make_sparkline(result['by_dep'].loc['14','mm_injections']['tot_inj']))
+by_dep = result['by_dep']
+fig.add_trace(make_sparkline(by_dep[by_dep['dep'] == '14'].mm_injections.iloc[0])[0])
 fig.show()
 #%%
-fig = go.figure()
+fig = go.Figure()
 
+df = pd.DataFrame({'value' : [1, 4, 5, 1, 2, 3]})
+fig.append_trace(make_sparkline(df), 1, 1)
 
+fig.show()
