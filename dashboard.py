@@ -200,7 +200,6 @@ def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
     )
     if dose == 1:
         chart['title'] = {'text' : nom_dep, 'align' : 'left', 'font' : {'size' : 14}}
-        print(nom_dep)
     return chart
 # result = compute_all()
 # fig = go.Figure()
@@ -305,11 +304,13 @@ def make_table(input_data, age=None):
 
         if dep:
             df = df_all_dep[df_all_dep['dep'] == dep]
+            df_inj = df.mm_injections.iloc[0]
             # nom_dep = df['nom_dep'][0]
             # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
             mid_row = (idx  + 1) * 3 + 2
         else:
             df = df_france
+            df_inj = df.mm_injections.iloc[0]
             # nom_dep = df['nom_dep']
             mid_row = 2
 
@@ -328,16 +329,16 @@ def make_table(input_data, age=None):
             mid_row, 2
         )
         fig.append_trace(
-            make_sparkline(df)[0],
+            make_sparkline(df_inj)[0],
             mid_row-1, 3
         )
         fig.update_xaxes(visible=False, showgrid=False)
         fig.update_yaxes(visible=False, showgrid=False)
-        fig.add_trace(make_sparkline(df)[1], mid_row-1, 3)
-        # min_inj = min(df['mm_injections'].iloc[0]['tot_inj']) - 100
-        # max_inj = max(df['mm_injections'].iloc[0]['tot_inj']) + 100
-        # fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
-        fig.append_trace(make_card(df['mm_injections']), mid_row-1,4)
+        fig.add_trace(make_sparkline(df_inj)[1], mid_row-1, 3)
+        min_inj = min(df['mm_injections'].iloc[0]['tot_inj']) - 100
+        max_inj = max(df['mm_injections'].iloc[0]['tot_inj']) + 100
+        fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
+        fig.append_trace(make_card(df_inj), mid_row-1,4)
 
     # France total row
     make_row(fig, df_france)
