@@ -96,8 +96,10 @@ def compute_agg(computed_vacc, by=None):
     '''
 
     if by == 'dep':
-        agg = computed_vacc[['dep', 'age', 'population', 'total_dose1', 'total_complet', 'injections']].groupby('dep').apply(sum)
-        agg = agg.drop(columns=['dep', 'age'])
+        agg = computed_vacc[['dep', 'nom_dep', 'age', 'population', 'total_dose1', 'total_complet', 'injections']].groupby('dep').apply(sum)
+        agg = agg.drop(columns=['age'])
+        agg['dep'] = agg['dep'].apply(lambda x: x[:len(x)//9])
+        agg['nom_dep'] = agg['nom_dep'].apply(lambda x: x[:len(x)//9])
     elif by == 'age':
         agg = computed_vacc[['dep', 'nom_dep', 'age', 'population', 'total_dose1', 'total_complet', 'injections']].groupby('age').apply(sum)
         agg = agg.drop(columns=['age', 'dep'])
@@ -148,6 +150,7 @@ def compute_all():
         'france' : france
     }
 
+#%%
 ################
 # bullet chart
 ################
@@ -158,19 +161,19 @@ def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
     Returns a bullet chart go 
     '''     
     if dep:
-        dep_nom = df_dep['dep_nom']
-        dep_nom = '<br>'.join(dep_nom)
+        nom_dep = df_dep[df_dep['dep'] == dep]['nom_dep'].iloc[0]
+        nom_dep = '<br>'.join(nom_dep)
        
         if dose==1:
-            score, target = df_dep['pc_dose1'], df_fr['pc_dose1']
+            score, target = df_dep['pc_dose1'].iloc[0], df_fr['pc_dose1'].iloc[0]
         elif dose==2:
-            score, target = df_dep['pc_complet'], df_fr['pc_complet']
+            score, target = df_dep['pc_complet'].iloc[0], df_fr['pc_complet'].iloc[0]
     else:
-        dep_nom = 'France'
+        nom_dep = 'France'
         if dose==1:
-            score, target = df_fr['pc_dose1'], 1
+            score, target = df_fr['pc_dose1'].iloc[0], 1
         elif dose==2:
-            score, target = df_fr['pc_complet'], 1
+            score, target = df_fr['pc_complet'].iloc[0], 1
 
     chart = go.Indicator(
         value = score,
@@ -195,9 +198,13 @@ def make_bullet(df_fr, df_dep=None, dep=None, dose=1):
         domain = {'x' : [0,1], 'y' : [0,1]}
     )
     if dose == 1:
-        chart['title'] = {'text' : dep_nom, 'align' : 'left', 'font' : {'size' : 14}}
+        chart['title'] = {'text' : nom_dep, 'align' : 'left', 'font' : {'size' : 14}}
     return chart
-
+# result = compute_all()
+# fig = go.Figure()
+# fig.add_trace(make_bullet(result['france'], result['by_dep'], dep='14', dose=1))
+# fig.show()
+#%%
 ##############
 #Sparklines
 ##############
@@ -230,8 +237,14 @@ def make_sparkline(df):
 ################
 
 def make_card(df):
-    last_week = df[-1]
-    minus_1W = df[-8]
+    try:
+        last_week = df['tot_inj'].iloc[-1]
+    except:
+        last_week = df.iloc[0]['tot_inj'].iloc[-1]
+    try:
+        minus_1W = df['tot_inj'].iloc[-8]
+    except:
+        minus_1W = df.iloc[0]['tot_inj'].iloc[-8]
 
     card = go.Indicator(
         value = last_week,
@@ -248,20 +261,20 @@ def make_card(df):
 # Full table
 ###############
 
-def make_table(data, age=None):
+def make_table(input_data, age=None):
     '''
     data is the output of compute_all()
     '''
 
     if age:
-        all = data['all']
+        all = input_data['all']
         df_all_dep = all[all['age'] == age].sort_values(by='pc_complet').reset_index()
-        df_france = data['by_age'].loc[age,:]
+        df_france = input_data['by_age'].loc[[age]]
     else:
-        df_all_dep = data['by_dep'].sort_values(by='pc_complet').reset_index()
-        df_france = data['france']
+        df_all_dep = input_data['by_dep'].sort_values(by='pc_complet').reset_index()
+        df_france = input_data['france']
     
-    n_dep = 10 # df_dep.shape[0]
+    n_dep = df_all_dep.shape[0]
     n_rows =  n_dep * 3 + 3
     n_cols = 4
 
@@ -282,22 +295,24 @@ def make_table(data, age=None):
         print_grid = False
     )
 
-    def make_row(df_france, df_all_dep=None, idx=None, dep=None):
+    fig.print_grid
+
+    def make_row(fig, df_france, df_all_dep=None, idx=None, dep=None):
         '''
         '''
 
         if dep:
             df = df_all_dep[df_all_dep['dep'] == dep]
-            dep_nom = df['nom_dep']
+            # nom_dep = df['nom_dep'][0]
             # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
             mid_row = (idx  + 1) * 3 + 2
         else:
             df = df_france
-            dep_nom = df['nom_dep']
+            # nom_dep = df['nom_dep']
             mid_row = 2
 
-        dep_nom = textwrap.wrap(dep_nom, width=15)
-        dep_nom = '<br>'.join(dep_nom)
+        # dep_nom = textwrap.wrap(dep_nom, width=15)
+        # dep_nom = '<br>'.join(dep_nom)
 
         fig.append_trace(
             make_bullet(df_france, df, dep, dose=1),
@@ -317,17 +332,17 @@ def make_table(data, age=None):
         fig.update_xaxes(visible=False, showgrid=False)
         fig.update_yaxes(visible=False, showgrid=False)
         fig.add_trace(make_sparkline(df)[1], mid_row-1, 3)
-        min_inj = min(df['mm_injections'].values) - 100
-        max_inj = max(df['mm_injections'].values) + 100
-        fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
-        fig.append_trace(make_card(df['mm_injections'].values), mid_row-1,4)
+        # min_inj = min(df['mm_injections'].iloc[0]['tot_inj']) - 100
+        # max_inj = max(df['mm_injections'].iloc[0]['tot_inj']) + 100
+        # fig.update_yaxes(range=[min_inj, max_inj], row=mid_row-1, col=3)
+        fig.append_trace(make_card(df['mm_injections']), mid_row-1,4)
 
     # France total row
-    make_row(df_france)
+    make_row(fig, df_france)
 
     # departements rows
-    for idx, dep in enumerate(df_all_dep):
-        make_row(df_france, df_all_dep, idx, dep)
+    for idx, dep in enumerate(df_all_dep['dep'].unique()):
+        make_row(fig, df_france, df_all_dep, idx, dep)
 
     fig.update_layout(
         height= 50 * (n_rows + 1),
@@ -458,5 +473,31 @@ def make_table(data, age=None):
     )
     return fig
 #%%
-# result = compute_all()
-make_table(result, 49).show()
+result = compute_all()
+#%%
+fig = make_table(result, 49)
+#%%
+figdict = fig.to_dict()
+# fig.show()
+
+#%%
+fig = go.Figure()
+
+fig.add_trace(make_bullet(result['france'], dose=2))
+
+fig.show()
+
+#%%
+
+fig = go.Figure()
+fig.add_trace(make_bullet(result['france'], result['by_dep'], dep='75', dose=1))
+fig.show()
+#%%
+
+fig = go.Figure()
+fig.add_trace(make_sparkline(result['by_dep'].loc['14','mm_injections']['tot_inj']))
+fig.show()
+#%%
+fig = go.figure()
+
+
