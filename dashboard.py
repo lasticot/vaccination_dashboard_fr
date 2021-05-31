@@ -6,7 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 colors = {
-    'bullet_bkg' : 'whitesmoke',
+    'background' : 'whitesmoke', 
+    'bullet_bkg' : 'white',
     'bullet_bar_complet': '#386CB9',
     'bullet_bar_1dose': '#7299D5',
     'sparkline' : '#386CB9',
@@ -307,7 +308,7 @@ def make_table(input_data, age=None):
         df_france = input_data['france']
 
     # header figure
-    header_fig = plt.figure(figsize=(15, 2), facecolor=colors['bullet_bar_complet'])
+    header_fig = plt.figure(figsize=(15, 1.3), facecolor=colors['bullet_bar_complet'])
 
     header_div = header_fig.add_gridspec(2, 5, hspace=0.05, width_ratios=[2, 5, 5, 2, 1.2])
     header_nom_dep = header_fig.add_subplot(header_div[0:1,0])
@@ -335,10 +336,10 @@ def make_table(input_data, age=None):
     n_cols = 4
 
     fig_width = 15
-    fig_height = n_rows
-    fig = plt.figure(figsize=(fig_width, fig_height))
+    fig_height = n_rows * 0.8
+    fig = plt.figure(figsize=(fig_width, fig_height), facecolor=colors['background'])
 
-    grid = fig.add_gridspec(n_rows, 5, width_ratios=[2, 5, 5, 2, 1.2])
+    grid = fig.add_gridspec(n_rows, 5, hspace=0.05, width_ratios=[2, 5, 5, 2, 1.2])
     
     # france row
     nom_dep = 'France'
@@ -390,7 +391,7 @@ def make_table(input_data, age=None):
         plt.xticks([])
         plt.yticks([])
     
-    return header_fig, fig
+    return header_fig, fig;
     
 
 
