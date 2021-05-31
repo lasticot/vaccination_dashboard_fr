@@ -24,7 +24,7 @@ clages = {
     '59' : '50 - 59 ans', 
     '64' : '60 - 64 ans', 
     '69' : '65 - 69 ans', 
-    '74' : '70 - 79 ans', 
+    '74' : '70 - 74 ans', 
     '79' : '75 - 79 ans', 
     '80' : '80 ans +'
 }
@@ -178,9 +178,6 @@ def compute_all():
 
 def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
     if dep:
-        # nom_dep = textwrap.wrap(nom_dep, width=15)
-        # nom_dep = '<br>'.join(nom_dep)
-       
         if dose==1:
             score, target = df_dep['pc_dose1'].iloc[0], df_fr['pc_dose1'].iloc[0]
         elif dose==2:
@@ -331,7 +328,7 @@ def make_table(input_data, age=None):
     header_sparkline_right = header_fig.add_subplot(header_div[1,4])
     make_header(header_sparkline_right, "7 dern. jrs \n % p.r 7 jrs préc.", fontsize=11, width = 13, fontcolor=colors['header_font'])
     
-    n_dep = 5  # df_all_dep.shape[0]
+    n_dep = df_all_dep.shape[0]
     n_rows =  n_dep + 1
     n_cols = 4
 

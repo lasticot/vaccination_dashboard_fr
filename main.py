@@ -6,7 +6,18 @@ import streamlit as st
 
 from dashboard import compute_all, make_table
 
-st.write('Hello world')
+clages_selected = {
+    "24 ans et plus": 29, 
+    '24 - 29 ans': 29, 
+    '30 - 39 ans': 39, 
+    '40 - 49 ans': 49, 
+    '50 - 59 ans': 59,
+    '60 - 64 ans': 64,
+    '65 - 69 ans': 69,
+    '70 - 74 ans': 74,
+    '75 - 79 ans': 79,
+    '80 ans et plus' : 80
+}
 @st.cache
 def computations():
     result = compute_all()
@@ -15,9 +26,10 @@ def computations():
 def display_table(result, age=None):
     make_table(result, age)
 
-
-result = copy.deepcopy(computations())
-st.write(make_table(result))
-
-st.pyplot(make_table(result)[0])
-st.pyplot(make_table(result)[1])
+with st.spinner("Le chargement des données est en cours. \n Encore un peu de patience avant de pouvoir les explorer!"):
+    result = copy.deepcopy(computations())
+age = st.selectbox("Classe d'âge", list(clages_selected.keys()))
+fig_header, fig_table = make_table(result, clages_selected[age])
+st.pyplot(fig_header)
+st.pyplot(fig_table)
+# 
