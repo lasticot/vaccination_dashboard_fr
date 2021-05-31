@@ -4,11 +4,27 @@ import textwrap
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 colors = {
-    'bullet_bk' : 'lightblue',
-    'bullet_bar': 'darkblue',
-    'sparkline' : 'darkblue'
+    'bullet_bkg' : 'whitesmoke',
+    'bullet_bar_complet': '#386CB9',
+    'bullet_bar_1dose': '#7299D5',
+    'sparkline' : '#386CB9',
+    'value+'    : 'darkgreen', 
+    'value-'    : 'darkred'
+}
+
+clages = {
+    '29' : '24 - 29 ans', 
+    '39' : '30 - 39 ans',
+    '49' : '40 - 49 ans', 
+    '59' : '50 - 59 ans', 
+    '64' : '60 - 64 ans', 
+    '69' : '65 - 69 ans', 
+    '74' : '70 - 79 ans', 
+    '79' : '75 - 79 ans', 
+    '80' : '80 ans +'
 }
 #######
 # chargement et formattage des data
@@ -173,13 +189,24 @@ def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
         elif dose==2:
             score, target = df_fr['pc_complet'].iloc[0], 1
 
-    ax.barh(0.5, score)
+    if dose == 1:
+        bar_color = colors['bullet_bar_1dose']
+    if dose == 2:
+        bar_color = colors['bullet_bar_complet']
+
+    ax.set_aspect(0.015)
+    ax.barh(0.5, 1, height=6, color=colors['bullet_bkg'], align='center')
+    ax.barh(0.5, score,  height=3, color=bar_color, align='center')
+    if dep:
+        ax.axvline(target, color='black', ymin=0.15, ymax=0.85)
     ax.set_xlim([0,1])
     ax.set_facecolor(color='lightblue')
     plt.xticks([])
     plt.yticks([])
 
-    ax.text(x=1.1, y=0.5, s=f'{score:.2%}', fontsize=14)
+    ax.text(x=1.05, y=0.5, s=f'{score:.0%}', fontsize=14)
+
+    # ax.margins(x=0.4)
 
     return ax
 
@@ -189,60 +216,9 @@ make_bullet(ax, result['france'])
 
 
 #%%
-def make_bullet_plotly(df_fr, df_dep=None, dep=None, dose=1):
-    '''
-    Input : dict of 2 dataframes (by dep, france) already filtered for the relevant age
-    Returns a bullet chart go 
-    '''     
-    if dep:
-        nom_dep = df_dep[df_dep['dep'] == dep]['nom_dep'].iloc[0]
-        nom_dep = textwrap.wrap(nom_dep, width=15)
-        nom_dep = '<br>'.join(nom_dep)
-       
-        if dose==1:
-            score, target = df_dep['pc_dose1'].iloc[0], df_fr['pc_dose1'].iloc[0]
-        elif dose==2:
-            score, target = df_dep['pc_complet'].iloc[0], df_fr['pc_complet'].iloc[0]
-    else:
-        nom_dep = 'France'
-        if dose==1:
-            score, target = df_fr['pc_dose1'].iloc[0], 1
-        elif dose==2:
-            score, target = df_fr['pc_complet'].iloc[0], 1
-
-    chart = go.Indicator(
-        value = score,
-        number = {'font' : {'size' : 14}, 'valueformat' : '0%'},
-        mode = 'gauge+number', 
-        # title = 'nom du departement', 
-        gauge = {
-            'shape' : 'bullet',
-            'borderwidth' : 0.2,
-            'bordercolor' : 'blue',
-            'bar' : {'color' : '#4259D6', 'thickness' : 0.6, 'line' : {'width' : 0}},
-            'axis' : {'visible': False, 'range' : [0, 1]},
-            'threshold' : {
-                'line' : {'width' : 2}, 
-                'value' : target,
-                'thickness' : 0.8
-            },
-            'steps' : [
-                {'range' : [0, 1], 'color' : '#ECEFFE'},
-            ]
-        },
-        domain = {'x' : [0,1], 'y' : [0,1]}
-    )
-    if dose == 1:
-        chart['title'] = {'text' : nom_dep, 'align' : 'left', 'font' : {'size' : 14}}
-    return chart
-# result = compute_all()
-# fig = go.Figure()
-# fig.add_trace(make_bullet(result['france'], result['by_dep'], dep='14', dose=1))
-# fig.show()
-#%%
-##############
-#Sparklines
-##############
+######################
+# SPARKLINE
+#####################
 
 def make_sparkline(ax, df):
     markers_on = [-1]
@@ -257,300 +233,226 @@ fig, ax = plt.subplots()
 
 make_sparkline(ax, result['france']['mm_injections'].iloc[0])
 
-
 #%%
-def make_sparkline_plotly(df):
-    '''
-    Returns a sparkline go
-    '''
-    # global values
-    sparkline = go.Scatter(
-        x = df.index,
-        y = df.iloc[:,0],
-        marker_color = '#4259D6',
-        fill = 'tozeroy',
-        fillcolor = 'rgba(66, 89, 214, 0.2)',
-        showlegend = False
-    )
-
-    last_point = go.Scatter(
-        x = df.index[[-1]],
-        y = df.iloc[[-1]],
-        mode = 'markers',
-        marker = {'size' : 15, 'color' : '#4259D6' },
-        showlegend = False
-    )
-    return sparkline, last_point 
-
 ################
 # Card
 ################
 
-def make_card(df):
-    try:
-        last_week = df['tot_inj'].iloc[-1]
-    except:
-        last_week = df.iloc[0]['tot_inj'].iloc[-1]
-    try:
-        minus_1W = df['tot_inj'].iloc[-8]
-    except:
-        minus_1W = df.iloc[0]['tot_inj'].iloc[-8]
+def human_format(num, k=False):
+    num = float('{:.0f}'.format(num))
+    if k:
+        magnitude = 0
+        while abs(num) >= 10000:
+            magnitude += 1
+            num /= 1000.0
+        return '{}{}'.format('{:.0f}'.format(num).rstrip('0').rstrip('.'), ['', 'K', 'M', 'B', 'T'][magnitude])
+    else:
+        return "{}".format('{}'.format(num).rstrip('0').rstrip('.'))
 
-    card = go.Indicator(
-        value = last_week,
-        number = {'font' : {'size' : 14}}, #'valueformat' : '>,.0f'},
-        delta = {'reference' : minus_1W, 'position' : 'bottom',
-                'relative' : True, 'valueformat' : '.0%', 'font' : {'size' : 10}},
-        mode = 'number+delta',
-        align = 'right'
+def make_card(ax, df):
+    '''
+    Displays the value of the metric for the last 30 days and the pc change against previous 30 days
+    '''
+    last_week = df['tot_inj'][-1]
+    # except:
+    #     last_week = df.iloc[0]['tot_inj'].iloc[-1]
+    minus_1W = df['tot_inj'].iloc[-8]
+    # except:
+    #     minus_1W = df.iloc[0]['tot_inj'].iloc[-8]
+    if minus_1W != 0:
+        pc = (last_week - minus_1W) / minus_1W
+    if pc > 0:
+        color_pc = colors['value+']
+    else:
+        color_pc = colors['value-']
 
-    )
-    return card
+    value = human_format(last_week, k=True)
+    pc = "{:+.2%}".format(pc)
+    ax.text(x=0.5, y=0.5, s=value,  fontsize=14, ha='center', va='bottom', transform=ax.transAxes)
+    ax.text(x=0.5, y=0.5, s=pc, color=color_pc, fontsize = 10, ha='center', va='top', transform=ax.transAxes)
+    ax.axis('off')
+    ax.margins(x=0.3, y=0.4)
+    return ax
+
+fig, ax = plt.subplots()
+_all = result['all']
+moselle = _all[(_all['dep'] == '88') & (_all['age'] == 49)].copy()
+make_card(ax, moselle['mm_injections'].iloc[0])
+
+#%%
+########################
+# header
+########################
+
+def make_header(ax, text, halign='center', width=15, fontsize=16):
+    if width == None:
+        text_wrapped = text
+    else:
+        text_wrapped = textwrap.wrap(text, width = width)
+        text_wrapped = '\n'.join(text_wrapped)
+    if halign == 'right':
+        xref = 1
+    elif halign == 'left':
+        xref = 0
+    else:
+        xref = 0.5
+    ax.text(x=xref, y=0.5, s=text_wrapped, fontsize=fontsize, ha=halign, va='center', transform=ax.transAxes)
+    ax.axis('off')
+    return ax
+
+
+#%%
 
 ###############
 # Full table
 ###############
 
 def make_table(input_data, age=None):
-    '''
-    data is the output of compute_all()
-    '''
-
     if age:
         all = input_data['all']
         df_all_dep = all[all['age'] == age].sort_values(by='pc_complet', ascending=False).reset_index()
         df_france = input_data['by_age'].loc[[age]]
     else:
-        df_all_dep = input_data['by_dep'].sort_values(by='pc_complet', ascending=False).reset_index()
+        df_all_dep = input_data['by_dep'].sort_values(by='pc_complet', ascending=False).reset_index(drop=True)
         df_france = input_data['france']
+
+    # header figure
+    header_fig = plt.figure(figsize=(15, 3))
+
+    header_div = header_fig.add_gridspec(2, 5, width_ratios=[3, 5, 5, 2, 1.2])
+    header_bullet_top = fig.add_subplot(header_div)
+    header_bullet_left = header_div[1,1].subgriddpec()
     
-    n_dep = 10  # df_all_dep.shape[0]
-    n_rows =  n_dep * 3 + 3
+    n_dep = 35  # df_all_dep.shape[0]
+    n_rows =  n_dep + 1
     n_cols = 4
 
-    row_specs = [[None               , None               , {'type' : 'xy', 'rowspan' : 3}, {'type' : 'domain', 'rowspan' : 3}],
-                 [{'type' : 'domain'}, {'type' : 'domain'}, None                          , None                              ],
-                 [None               , None               , None                          , None                              ]],
+    fig_width = 15
+    fig_height = n_rows
+    fig = plt.figure(figsize=(fig_width, fig_height))
+
+    # 1er niveau sépare les row et colonnes header de la table
+    table  = fig.add_gridspec(2, 2, wspace=0.05, hspace=0.05, width_ratios=[1,5], height_ratios=[2, n_rows])
+
+    col_headers = table[0,1].subgridspec(1, 4, width_ratios=[5,  5, 2, 1.2])
+    row_headers  = table[1,0].subgridspec(n_rows, 1)
+
+    # column headers
+    bullet_header = col_headers[0,:2].subgridspec(2, 2)
+    bullet_header_top = fig.add_subplot(bullet_header[0,:])
+    if age == None:
+        make_header(bullet_header_top, f"Pourcentage de la population âgée de 24 ans et plus ayant reçu...", width=60, fontsize=14)
+    else:
+        clage = clages[str(age)]
+        make_header(bullet_header_top, f"Pourcentage de la classe d'âge {clage} ayant reçu...", width=60, fontsize=14)
+    bullet_header_bottom_l = fig.add_subplot(bullet_header[1,0])
+    make_header(bullet_header_bottom_l, '... une couverture partielle', halign='left', width=30, fontsize=14)
+    bullet_header_bottom_r = fig.add_subplot(bullet_header[1,1])
+    make_header(bullet_header_bottom_r, '... une couverture complète', halign='left', width=30, fontsize=14)
+
+    spark_header = col_headers[0,2:].subgridspec(2,2, hspace=1)
+    spark_header_top = fig.add_subplot(spark_header[0,:])
+    make_header(spark_header_top, "Nb d'injections moy. mobile 7jrs", width=35, fontsize=12)
+    spark_header_bottom_l = fig.add_subplot(spark_header[1,0])
+    make_header(spark_header_bottom_l, "30 derniers jrs", width=20, fontsize=11)
+    spark_header_bottom_r = fig.add_subplot(spark_header[1,1])
+    make_header(spark_header_bottom_r, "7 dern. jrs\n%p.r. 7 jrs préc.", width=None, fontsize=11)
+
+    grid = table[1,1].subgridspec(n_rows, 4, width_ratios=[5, 5, 2, 1.2])
+
+    for idx in range(n_rows-1):
+        nom_dep = df_all_dep.loc[idx,:]['nom_dep']
+        ax = fig.add_subplot(row_headers[idx + 1])
+        make_header(ax, nom_dep, halign='right')
+        plt.xticks([])
+        plt.yticks([])
     
-    specs = row_specs[0] * (n_dep + 1)
-    row_heights = [1, 1, 1] * (n_dep + 1)
+    # france row
+    ax_fr = fig.add_subplot(row_headers[0])
+    make_header(ax_fr, 'France', halign='right')
+    plt.xticks([])
+    plt.yticks([])
 
-    fig = make_subplots(
-        rows=n_rows, cols=n_cols,
-        specs = specs,
-        column_widths = [2.5, 2.5, 1, 0.5],
-        row_heights = row_heights,
-        horizontal_spacing = 0.03,
-        vertical_spacing   = 0.0,
-        print_grid = False
-    )
+    div_dose1 = grid[0, 0].subgridspec(1, 2, width_ratios=[6,1])
+    ax_fr_dose1 = fig.add_subplot(div_dose1[0,0])
+    make_bullet(ax_fr_dose1, df_france, df_france, dose=1)
 
-    def make_row(fig, df_france, df_all_dep=None, idx=None, dep=None):
-        '''
-        '''
+    div_dose2 = grid[0, 1].subgridspec(1, 2, width_ratios=[6,1])
+    ax_fr_dose2 = fig.add_subplot(div_dose2[0,0])
+    make_bullet(ax_fr_dose2, df_france, df_france, dose=2)
 
-        if dep:
-            df = df_all_dep[df_all_dep['dep'] == dep]
-            df_inj = df.mm_injections.iloc[0]
-            # nom_dep = df['nom_dep'][0]
-            # middle row in the department's row (1st row is for Fr, each dep's row takes 3 rows in the grid)
-            mid_row = (idx  + 1) * 3 + 2
-        else:
-            df = df_france
-            df_inj = df.mm_injections.iloc[0]
-            # nom_dep = df['nom_dep']
-            mid_row = 2
-
-        fig.append_trace(
-            make_bullet(df_france, df, dep, dose=1),
-            mid_row, 1)
-
-        fig.append_trace(
-            make_bullet(df_france, df, dep, dose=2),
-            mid_row, 2
-        )
-        fig.append_trace(
-            make_sparkline(df_inj)[0],
-            mid_row-1, 3
-        )
-        # fig.add_trace(make_sparkline(df_inj)[1], mid_row-1, 3)
-        fig.update_xaxes(visible=False, showgrid=False)
-        fig.update_yaxes(visible=False, showgrid=False)
-        min_inj = min(df['mm_injections'].iloc[0]['tot_inj'])
-        max_inj = max(df['mm_injections'].iloc[0]['tot_inj'])
-        amplitude = (max_inj - min_inj)/min_inj 
-        if amplitude <= 0.1:
-            range = [min_inj * 0.9, min_inj * (amplitude + 1.01)]
-        else:
-            range = [min_inj * 0.9, max_inj * (amplitude + 1.01)]
-        print(range)
-        fig.update_yaxes(range=range, row=mid_row-1, col=3)
-        fig.append_trace(make_card(df_inj), mid_row-1,4)
-
-    # France total row
-    make_row(fig, df_france)
-
-    # departements rows
-    for idx, dep in enumerate(df_all_dep['dep'].unique()[:n_dep]):
-        make_row(fig, df_france, df_all_dep, idx, dep)
-
-    fig.update_layout(
-        height= 15 * (n_rows + 1),
-        width = 750,
-        margin = {
-            'l' : 120, 
-            'r' : 30, 
-            't' : 20,
-            'b' : 5},
-        xaxis = {'visible' : False, 'showgrid':True, 'gridwidth':0},
-        yaxis = {'visible' : False, 'showgrid':True},
-        plot_bgcolor = 'rgba(0, 0, 0, 0)',
-        paper_bgcolor = 'rgba(0, 0, 0, 0)'
-        )
+    df_inj_fr = df_france['mm_injections'].iloc[0]
+    ax_fr_spark =  fig.add_subplot(grid[0, 2])
+    make_sparkline(ax_fr_spark, df_inj_fr)
     
-    bckgr=[
-        dict(
-            type = 'rect',
-            xref = 'paper',
-            yref = 'paper', 
-            x0 = -0.5,
-            x1 = 1.2,
-            y0 = i/(n_dep + 1),
-            y1 = (i+1)/(n_dep + 1),
-            fillcolor = 'grey',
-            layer = 'below',
-            line_width = 0,
-            opacity = 0.1
-        )
-    for i in range(1,n_dep,2)
-    ]
-    bckgr.append(
-            dict(
-                type = 'rect',
-                xref = 'paper',
-                yref = 'paper',
-                x0 = -1.5,
-                x1 = 1.5,
-                y0 = 1.015,
-                y1 = 1.2,
-                fillcolor = 'darkblue', 
-                layer = 'below',
-                line_width = 0,
-                opacity = 0.5
-            )
-    )
-    fig.update_layout(
-        shapes=bckgr
-    )
+    ax_fr_card = fig.add_subplot(grid[0, 3])
+    make_card(ax_fr_card, df_inj_fr)
 
-    fig.update_layout(
-        margin = dict(
-            t = 80
-        )
-    )
+    for row in range(0,n_rows-1):
+        df_dep = df_all_dep.loc[[row],:]
+        dep = df_dep['dep'].iloc[0]
+        div_dose1 = grid[row+1, 0].subgridspec(1, 2, width_ratios=[6,1])
+        ax_dose1 = fig.add_subplot(div_dose1[0,0])
+        make_bullet(ax_dose1, df_france, df_dep, dep, dose=1)
 
-    fig.add_annotation(
-        text = "Pourcentage de la population<br>ayant reçu...",
-        showarrow=False,
-        font = dict(
-            color = 'white',
-            size=14
-        ),
-        xref = 'paper', 
-        yref = 'paper',
-        x = 0.35,
-        y = 1.20
-    )
-    fig.add_annotation(
-        text = '... 1 dose',
-        showarrow=False,
-        font = dict(
-            color = 'white',
-            size=14
-        ),
-        xref = 'paper',
-        yref = 'paper', 
-        x = 0.05,
-        y = 1.1
-    )
-    fig.add_annotation(
-        text = '... couverture complète',
-        showarrow=False,
-        font = dict(
-            color = 'white',
-            size=14
-        ),
-        xref = 'paper',
-        yref = 'paper', 
-        x = 0.5,
-        y = 1.1
-    )
-    fig.add_annotation(
-        text = "Nb d'injections<br>(Moy. mobile 7 jrs)",
-        showarrow=False,
-        font = dict(
-            color = 'white',
-            size=13
-        ),
-        xref = 'paper',
-        yref = 'paper', 
-        x = 1.02,
-        y = 1.2
-    )
-    fig.add_annotation(
-        text = "30 derniers<br>jours",
-        showarrow=False,
-        font = dict(
-            color = 'white',
-            size=11
-        ),
-        xref = 'paper',
-        yref = 'paper', 
-        x = 0.87,
-        y = 1.1
-    )
-    fig.add_annotation(
-        text = "7 dern. jrs<br>% p.r 7 jrs préc.",
-        showarrow=False,
-        font = dict(
-            color = 'white',
-            size=11
-        ),
-        xref = 'paper',
-        yref = 'paper', 
-        x = 1.05,
-        y = 1.1
-    )
-    return fig
-#%%
-result = compute_all()
-#%%
-fig = make_table(result, 49)
-fig.show() 
-# fig.show()
+        div_dose2 = grid[row+1, 1].subgridspec(1, 2, width_ratios=[6,1])
+        ax_dose2 = fig.add_subplot(div_dose2[0,0])
+        make_bullet(ax_dose2, df_france, df_dep, dep, dose=2)
 
-#%%
-fig = go.Figure()
+        df_inj = df_dep['mm_injections'].iloc[0]
+        ax_spark =  fig.add_subplot(grid[row+1, 2])
+        make_sparkline(ax_spark, df_inj)
+        
+        ax_card = fig.add_subplot(grid[row+1, 3])
+        make_card(ax_card, df_inj)
 
-fig.add_trace(make_bullet(result['france'], dose=2))
+        # plt.subplots_adjust(left=0, right=0.9)
+        plt.xticks([])
+        plt.yticks([])
+    
+    # fig_iso = fig_height *0.65
+    # row_h = fig_iso / n_rows
+    # for i in np.linspace(1, fig_iso, n_rows//2):
+    #     fig.patches.extend([plt.Rectangle((1, i), fig_width-2, row_h, facecolor='pink', alpha=0.3, transform=fig.dpi_scale_trans)])
+    # fig.patches.extend([plt.Rectangle((2, fig_height-2), fig_width*0.8, 2*row_h, facecolor='lightblue', alpha=0.3, transform=fig.dpi_scale_trans)])
+    # fig.patches.extend([plt.Rectangle((0.1, 0.8), 0.8, 0.07, facecolor='lightblue', alpha=0.3, transform=fig.transFigure)])
 
-fig.show()
+    # ax = fig.add_axes([0,0,1,1])
+    # ax.xaxis.set_visible(False)
+    # ax.yaxis.set_visible(False)
+    # ax.set_zorder(-1)
+    # ax.set_alpha(0.2)
+    # ax.patch.set_color('pink')
 
-#%%
+    # # fig.patch.set_facecolor('pink')
+    # plt.margins(0,0)
+    # plt.subplots_adjust()
 
-fig = go.Figure()
-fig.add_trace(make_bullet(result['france'], result['by_dep'], dep='75', dose=1))
-fig.show()
-#%%
 
-fig = go.Figure()
-by_dep = result['by_dep']
-fig.add_trace(make_sparkline(by_dep[by_dep['dep'] == '14'].mm_injections.iloc[0])[0])
-fig.show()
-#%%
-fig = go.Figure()
+    # plt.show()
 
-df = pd.DataFrame({'value' : [1, 4, 5, 1, 2, 3]})
-fig.append_trace(make_sparkline(df), 1, 1)
 
-fig.show()
+# %%
+
+def check_dep(dep, age):
+    global vacc, departements, result
+
+    df1 = vacc[(vacc['dep'] == dep) & (vacc['clage_vacsi'] == age)].copy().set_index('jour')
+    df1['total'] = df1.n_dose1 + df1.n_complet
+    df1['mm'] = df1.total.rolling(7).mean()
+    to_plot_mm = df1[['mm']].iloc[-30:]
+    to_plot_inj = df1[['total']].iloc[-30:]
+
+    df2 = result['all'].copy()
+    df2 = df2[(df2['age'] == age) & (df2['dep'] == dep)].copy()
+    df_inj = df2['mm_injections'].iloc[0]
+
+    fig, ax = plt.subplots(1, 3, figsize=(15, 3))
+
+    ax[0].plot(to_plot_mm)
+    ax[1].plot(to_plot_inj)
+    make_card(ax[2], df_inj)
+
+    plt.show()
+    return (to_plot_mm, to_plot_inj)
+
