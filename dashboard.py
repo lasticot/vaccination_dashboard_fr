@@ -26,7 +26,7 @@ clages = {
     '69' : '65 - 69 ans', 
     '74' : '70 - 74 ans', 
     '79' : '75 - 79 ans', 
-    '80' : '80 ans +'
+    '80' : '80 ans et plus'
 }
 #######
 # chargement et formattage des data
@@ -35,46 +35,32 @@ clages = {
 def load_format_data():
     # vaccination
     df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
-        parse_dates=['jour'], dtype={'dep':str}, usecols=['dep', 'jour', 'clage_vacsi', 'n_dose1', 'n_complet'])
+        parse_dates=['jour'], dtype={'dep':str})
 
-    # population par département, classe d'âge et sexe
-    # source INSEE : https://www.insee.fr/fr/statistiques/1893198
-    df2 = pd.read_excel('pop_dep_sexe_age.xlsx', engine='openpyxl', dtype={'dep':str})
+    df2 = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str})
 
     # changement de nom
     vacc = df1.copy()
     departements = df2.copy()
 
-    # Unpivot du fichier dep
-    departements = departements.melt(id_vars = ['dep', 'nom_dep'], value_name='pop')
+    vacc[['couv_dose1', 'couv_complet']] = vacc[['couv_dose1', 'couv_complet']] / 100
+    # nb total d'injections, somme mobile 7 derniers jours
+    vacc['inj'] = vacc['n_dose1'] + vacc['n_complet']
+    vacc['inj'] = vacc['inj'].rolling(7).sum()
+    # Nb de personnes non vaccinées estimée, somme mobile 7 derniers jours
+    vacc['non_vacc'] = (vacc['n_cum_complet'] * (1 - vacc['couv_complet'])) / vacc['couv_complet']
+    vacc['non_vacc'] = vacc['non_vacc'].rolling(7).sum()
+    # ratio du nombre d'injections sur la part des personnes restant à vacciner
+    if vacc['non_vacc'].iloc[-1] != 0:
+        vacc['ratio'] = vacc['inj'] / (vacc['non_vacc'])
+    else:
+        np.nan
 
-    # split du sexe et de la classe d'âge
-    departements['sexe']  = departements.variable.str[0]
-    departements['age'] = departements.variable.str[1:]
-    departements.drop('variable', axis=1, inplace=True)
+    vacc = vacc.merge(departements, how='left', on='dep')
+    vacc['nom_dep'] = vacc.dep.str.cat(vacc.nom_dep, sep=' - ')
 
-    # on laisse tomber les <25 pour faire correspondre les classes d'âges dans les 2 df
-    departements.age = departements.age.str.strip('+').astype(int)
-    departements = departements[departements.age >= 29].copy()
-    vacc = vacc[vacc.clage_vacsi >= 29].copy()
-
-    # on laisse tomber le dep 00 (total) et >976 (pas présents dans dep)
-    vacc = vacc[vacc.dep.isin(departements.dep.unique())].copy()
-
-    # regroupement des classes d'âges dans dep pour correspondre aux classes d'âges des vaccins
-    bins = pd.IntervalIndex.from_tuples([(24, 29), (30, 39), (40, 49), (50, 59), (60, 64), (65, 69), (70, 74), (75, 79), (80, np.inf)])
-    departements['clage'] = pd.cut(departements.age, bins, labels=['29', '39', '49', '59', '64', '69', '74', '79', '89'])
-    temp = departements.groupby(['dep', 'clage'], as_index=False)['pop'].sum()
-
-    renaming = dict(zip(temp.clage.unique(), vacc.clage_vacsi.unique()))
-    temp['clage'] = temp['clage'].replace(renaming)
-
-    # ajout des noms de département (le gropuby ne marche pas si je les garde ¯\_(ツ)_/¯)
-    nom_dep = departements.groupby(['dep', 'nom_dep'], as_index=False).min()[['dep', 'nom_dep']]
-    departements = temp.merge(nom_dep, how='left', on='dep')
-
-    return vacc, departements
-
+    return vacc
+#%%
 ###########
 # Values computation
 ###########
@@ -176,17 +162,12 @@ def compute_all():
 # bullet chart
 ################
 
-def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
-    if dep:
-        if dose==1:
-            score, target = df_dep['pc_dose1'].iloc[0], df_fr['pc_dose1'].iloc[0]
-        elif dose==2:
-            score, target = df_dep['pc_complet'].iloc[0], df_fr['pc_complet'].iloc[0]
-    else:
-        if dose==1:
-            score, target = df_fr['pc_dose1'].iloc[0], 1
-        elif dose==2:
-            score, target = df_fr['pc_complet'].iloc[0], 1
+def make_bullet(ax, df, target, dose=1):
+
+    if dose == 1:
+        score = df['couv_dose1'].iloc[-1]
+    elif dose == 2:
+        score = df['couv_complet'].iloc[-1]
 
     if dose == 1:
         bar_color = colors['bullet_bar_1dose']
@@ -196,7 +177,7 @@ def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
     ax.set_aspect(0.015)
     ax.barh(0.5, 1, height=6, color=colors['bullet_bkg'], align='center')
     ax.barh(0.5, score,  height=3, color=bar_color, align='center')
-    if dep:
+    if df.dep.unique()[0] != '00':
         ax.axvline(target, color='black', ymin=0.15, ymax=0.85)
     ax.set_xlim([0,1])
     ax.set_facecolor(color='lightblue')
@@ -204,9 +185,6 @@ def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
     plt.yticks([])
 
     ax.text(x=1.05, y=0.5, s=f'{score:.0%}', fontsize=14)
-
-    # ax.margins(x=0.4)
-
     return ax
 
 
@@ -217,7 +195,7 @@ def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
 
 def make_sparkline(ax, df):
     markers_on = [-1]
-    ax.plot(df, '-o', color=colors['sparkline'], markevery=markers_on)
+    ax.plot(df['ratio'], '-o', color=colors['sparkline'], markevery=markers_on)
     ax.fill_between(df.index, df.min(), df.iloc[:,0], color=colors['sparkline'], 
         alpha = 0.2)
     ax.axis('off')
@@ -245,20 +223,18 @@ def make_card(ax, df):
     '''
     Displays the value of the metric for the last 30 days and the pc change against previous 30 days
     '''
-    last_week = df['tot_inj'][-1]
-    # except:
-    #     last_week = df.iloc[0]['tot_inj'].iloc[-1]
-    minus_1W = df['tot_inj'].iloc[-8]
+    last = df['ratio'].iloc[-1]
+    minus_1W = df['ratio'].iloc[-8]
     # except:
     #     minus_1W = df.iloc[0]['tot_inj'].iloc[-8]
     if minus_1W != 0:
-        pc = (last_week - minus_1W) / minus_1W
+        pc = (last - minus_1W) / minus_1W
     if pc > 0:
         color_pc = colors['value+']
     else:
         color_pc = colors['value-']
 
-    value = human_format(last_week, k=True)
+    value = human_format(last, k=True)
     pc = "{:+.2%}".format(pc)
     ax.text(x=0.5, y=0.5, s=value,  fontsize=14, ha='center', va='bottom', transform=ax.transAxes)
     ax.text(x=0.5, y=0.5, s=pc, color=color_pc, fontsize = 10, ha='center', va='top', transform=ax.transAxes)
@@ -295,14 +271,11 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 # Full table
 ###############
 
-def make_table(input_data, age=None):
-    if age:
-        all = input_data['all']
-        df_all_dep = all[all['age'] == age].sort_values(by='pc_complet', ascending=False).reset_index()
-        df_france = input_data['by_age'].loc[[age]]
-    else:
-        df_all_dep = input_data['by_dep'].sort_values(by='pc_complet', ascending=False).reset_index(drop=True)
-        df_france = input_data['france']
+def make_table(df, age=0):
+
+    df_france = df[df.clage_vacsi == age].copy()
+    target_dose1 = df_france['n_cum_dose1'].iloc[-1]
+    target_complet = df_france['n_cum_complet'].iloc[-1]
 
     # header figure
     header_fig = plt.figure(figsize=(15, 1.3), facecolor=colors['bullet_bar_complet'])
@@ -311,8 +284,8 @@ def make_table(input_data, age=None):
     header_nom_dep = header_fig.add_subplot(header_div[0:1,0])
     make_header(header_nom_dep, "")
     header_bullet_top = header_fig.add_subplot(header_div[0,1:3])
-    if age == None:
-        make_header(header_bullet_top, f"Pourcentage de la population âgée de 24 ans et plus...", width=60, fontsize=14, fontcolor=colors['header_font'])
+    if age == 0:
+        make_header(header_bullet_top, f"Pourcentage de la population...", width=60, fontsize=14, fontcolor=colors['header_font'])
     else:
         clage = clages[str(age)]
         make_header(header_bullet_top, f"Pourcentage de la classe d'âge {clage}...", width=60, fontsize=14, fontcolor=colors['header_font'])
@@ -328,7 +301,7 @@ def make_table(input_data, age=None):
     header_sparkline_right = header_fig.add_subplot(header_div[1,4])
     make_header(header_sparkline_right, "7 dern. jrs \n % p.r 7 jrs préc.", fontsize=11, width = 13, fontcolor=colors['header_font'])
     
-    n_dep = df_all_dep.shape[0]
+    n_dep = df.dep.unique().shape[0]
     n_rows =  n_dep + 1
     n_cols = 4
 
@@ -348,13 +321,13 @@ def make_table(input_data, age=None):
     # ajout d'un gridspec vide pour bon alignement du pourcentage
     div_dose1 = grid[0, 1].subgridspec(1, 2, width_ratios=[6,1])
     ax_fr_dose1 = fig.add_subplot(div_dose1[0,0])
-    make_bullet(ax_fr_dose1, df_france, df_france, dose=1)
+    make_bullet(ax_fr_dose1, df_france, target_dose1, dose=1)
 
     div_dose2 = grid[0, 2].subgridspec(1, 2, width_ratios=[6,1])
     ax_fr_dose2 = fig.add_subplot(div_dose2[0,0])
-    make_bullet(ax_fr_dose2, df_france, df_france, dose=2)
+    make_bullet(ax_fr_dose2, df_france, target_complet, dose=2)
 
-    df_inj_fr = df_france['mm_injections'].iloc[0]
+    df_inj_fr = df_france[['ratio']]
     ax_fr_spark =  fig.add_subplot(grid[0, 3])
     make_sparkline(ax_fr_spark, df_inj_fr)
     
