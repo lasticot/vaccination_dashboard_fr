@@ -4,7 +4,6 @@ import textwrap
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 
 colors = {
     'bullet_bkg' : 'whitesmoke',
@@ -212,10 +211,6 @@ def make_bullet(ax, df_fr, df_dep=None, dep=None, dose=1):
 
     return ax
 
-fig, ax = plt.subplots()
-
-make_bullet(ax, result['france'])
-
 
 #%%
 ######################
@@ -231,9 +226,6 @@ def make_sparkline(ax, df):
     ax.margins(y=0.6)
     return ax
 
-fig, ax = plt.subplots()
-
-make_sparkline(ax, result['france']['mm_injections'].iloc[0])
 
 #%%
 ################
@@ -276,10 +268,6 @@ def make_card(ax, df):
     ax.margins(x=0.3, y=0.4)
     return ax
 
-fig, ax = plt.subplots()
-_all = result['all']
-moselle = _all[(_all['dep'] == '88') & (_all['age'] == 49)].copy()
-make_card(ax, moselle['mm_injections'].iloc[0])
 
 #%%
 ########################
@@ -350,9 +338,6 @@ def make_table(input_data, age=None):
     fig_height = n_rows
     fig = plt.figure(figsize=(fig_width, fig_height))
 
-    # 1er niveau sépare les row et colonnes header de la table
-    # table  = fig.add_gridspec(2, 2, wspace=0.05, hspace=0.05, width_ratios=[1,5], height_ratios=[2, n_rows])
-
     grid = fig.add_gridspec(n_rows, 5, width_ratios=[2, 5, 5, 2, 1.2])
     
     # france row
@@ -405,26 +390,8 @@ def make_table(input_data, age=None):
         plt.xticks([])
         plt.yticks([])
     
-    # fig_iso = fig_height *0.65
-    # row_h = fig_iso / n_rows
-    # for i in np.linspace(1, fig_iso, n_rows//2):
-    #     fig.patches.extend([plt.Rectangle((1, i), fig_width-2, row_h, facecolor='pink', alpha=0.3, transform=fig.dpi_scale_trans)])
-    # fig.patches.extend([plt.Rectangle((2, fig_height-2), fig_width*0.8, 2*row_h, facecolor='lightblue', alpha=0.3, transform=fig.dpi_scale_trans)])
-    # fig.patches.extend([plt.Rectangle((0.1, 0.8), 0.8, 0.07, facecolor='lightblue', alpha=0.3, transform=fig.transFigure)])
-
-    # ax = fig.add_axes([0,0,1,1])
-    # ax.xaxis.set_visible(False)
-    # ax.yaxis.set_visible(False)
-    # ax.set_zorder(-1)
-    # ax.set_alpha(0.2)
-    # ax.patch.set_color('pink')
-
-    # # fig.patch.set_facecolor('pink')
-    # plt.margins(0,0)
-    # plt.subplots_adjust()
-
-
-    # plt.show()
+    return header_fig, fig
+    
 
 
 # %%
