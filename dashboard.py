@@ -12,7 +12,9 @@ colors = {
     'bullet_bar_1dose': '#7299D5',
     'sparkline' : '#386CB9',
     'value+'    : 'darkgreen', 
-    'value-'    : 'darkred'
+    'value-'    : 'darkred',
+    'header'    : '#386CB9', 
+    'header_font' : 'white'
 }
 
 clages = {
@@ -284,7 +286,7 @@ make_card(ax, moselle['mm_injections'].iloc[0])
 # header
 ########################
 
-def make_header(ax, text, halign='center', width=15, fontsize=16):
+def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='black'):
     if width == None:
         text_wrapped = text
     else:
@@ -296,7 +298,7 @@ def make_header(ax, text, halign='center', width=15, fontsize=16):
         xref = 0
     else:
         xref = 0.5
-    ax.text(x=xref, y=0.5, s=text_wrapped, fontsize=fontsize, ha=halign, va='center', transform=ax.transAxes)
+    ax.text(x=xref, y=0.5, s=text_wrapped, fontsize=fontsize, ha=halign, va='center', transform=ax.transAxes, color=fontcolor)
     ax.axis('off')
     return ax
 
@@ -317,28 +319,28 @@ def make_table(input_data, age=None):
         df_france = input_data['france']
 
     # header figure
-    header_fig = plt.figure(figsize=(15, 2))
+    header_fig = plt.figure(figsize=(15, 2), facecolor=colors['bullet_bar_complet'])
 
     header_div = header_fig.add_gridspec(2, 5, hspace=0.05, width_ratios=[2, 5, 5, 2, 1.2])
     header_nom_dep = header_fig.add_subplot(header_div[0:1,0])
     make_header(header_nom_dep, "")
     header_bullet_top = header_fig.add_subplot(header_div[0,1:3])
     if age == None:
-        make_header(header_bullet_top, f"Pourcentage de la population âgée de 24 ans et plus...", width=60, fontsize=14)
+        make_header(header_bullet_top, f"Pourcentage de la population âgée de 24 ans et plus...", width=60, fontsize=14, fontcolor=colors['header_font'])
     else:
         clage = clages[str(age)]
-        make_header(header_bullet_top, f"Pourcentage de la classe d'âge {clage}...", width=60, fontsize=14)
+        make_header(header_bullet_top, f"Pourcentage de la classe d'âge {clage}...", width=60, fontsize=14, fontcolor=colors['header_font'])
 
     header_bullet_left = header_fig.add_subplot(header_div[1,1])
-    make_header(header_bullet_left, "...partiellement vaccinée", fontsize=14, width=30)
+    make_header(header_bullet_left, "...partiellement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
     header_bullet_right = header_fig.add_subplot(header_div[1,2])
-    make_header(header_bullet_right, "...entièrement vaccinée", fontsize=14, width=30)
+    make_header(header_bullet_right, "...entièrement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
     header_sparkline_top = header_fig.add_subplot(header_div[0,3:])
-    make_header(header_sparkline_top, "Nb d'injections moy. mobile 7jrs", fontsize=12, width=18)
+    make_header(header_sparkline_top, "Nb d'injections moy. mobile 7jrs", fontsize=12, width=18, fontcolor=colors['header_font'])
     header_sparkline_left = header_fig.add_subplot(header_div[1,3])
-    make_header(header_sparkline_left, "30 derniers jrs", fontsize=11)
+    make_header(header_sparkline_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
     header_sparkline_right = header_fig.add_subplot(header_div[1,4])
-    make_header(header_sparkline_right, "7 dern. jrs \n % p.r 7 jrs préc.", fontsize=11, width = 13)
+    make_header(header_sparkline_right, "7 dern. jrs \n % p.r 7 jrs préc.", fontsize=11, width = 13, fontcolor=colors['header_font'])
     
     n_dep = 5  # df_all_dep.shape[0]
     n_rows =  n_dep + 1
