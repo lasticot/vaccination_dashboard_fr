@@ -317,13 +317,30 @@ def make_table(input_data, age=None):
         df_france = input_data['france']
 
     # header figure
-    header_fig = plt.figure(figsize=(15, 3))
+    header_fig = plt.figure(figsize=(15, 2))
 
-    header_div = header_fig.add_gridspec(2, 5, width_ratios=[3, 5, 5, 2, 1.2])
-    header_bullet_top = fig.add_subplot(header_div)
-    header_bullet_left = header_div[1,1].subgriddpec()
+    header_div = header_fig.add_gridspec(2, 5, hspace=0.05, width_ratios=[2, 5, 5, 2, 1.2])
+    header_nom_dep = header_fig.add_subplot(header_div[0:1,0])
+    make_header(header_nom_dep, "")
+    header_bullet_top = header_fig.add_subplot(header_div[0,1:3])
+    if age == None:
+        make_header(header_bullet_top, f"Pourcentage de la population âgée de 24 ans et plus...", width=60, fontsize=14)
+    else:
+        clage = clages[str(age)]
+        make_header(header_bullet_top, f"Pourcentage de la classe d'âge {clage}...", width=60, fontsize=14)
+
+    header_bullet_left = header_fig.add_subplot(header_div[1,1])
+    make_header(header_bullet_left, "...partiellement vaccinée", fontsize=14, width=30)
+    header_bullet_right = header_fig.add_subplot(header_div[1,2])
+    make_header(header_bullet_right, "...entièrement vaccinée", fontsize=14, width=30)
+    header_sparkline_top = header_fig.add_subplot(header_div[0,3:])
+    make_header(header_sparkline_top, "Nb d'injections moy. mobile 7jrs", fontsize=12, width=18)
+    header_sparkline_left = header_fig.add_subplot(header_div[1,3])
+    make_header(header_sparkline_left, "30 derniers jrs", fontsize=11)
+    header_sparkline_right = header_fig.add_subplot(header_div[1,4])
+    make_header(header_sparkline_right, "7 dern. jrs \n % p.r 7 jrs préc.", fontsize=11, width = 13)
     
-    n_dep = 35  # df_all_dep.shape[0]
+    n_dep = 5  # df_all_dep.shape[0]
     n_rows =  n_dep + 1
     n_cols = 4
 
@@ -332,78 +349,54 @@ def make_table(input_data, age=None):
     fig = plt.figure(figsize=(fig_width, fig_height))
 
     # 1er niveau sépare les row et colonnes header de la table
-    table  = fig.add_gridspec(2, 2, wspace=0.05, hspace=0.05, width_ratios=[1,5], height_ratios=[2, n_rows])
+    # table  = fig.add_gridspec(2, 2, wspace=0.05, hspace=0.05, width_ratios=[1,5], height_ratios=[2, n_rows])
 
-    col_headers = table[0,1].subgridspec(1, 4, width_ratios=[5,  5, 2, 1.2])
-    row_headers  = table[1,0].subgridspec(n_rows, 1)
-
-    # column headers
-    bullet_header = col_headers[0,:2].subgridspec(2, 2)
-    bullet_header_top = fig.add_subplot(bullet_header[0,:])
-    if age == None:
-        make_header(bullet_header_top, f"Pourcentage de la population âgée de 24 ans et plus ayant reçu...", width=60, fontsize=14)
-    else:
-        clage = clages[str(age)]
-        make_header(bullet_header_top, f"Pourcentage de la classe d'âge {clage} ayant reçu...", width=60, fontsize=14)
-    bullet_header_bottom_l = fig.add_subplot(bullet_header[1,0])
-    make_header(bullet_header_bottom_l, '... une couverture partielle', halign='left', width=30, fontsize=14)
-    bullet_header_bottom_r = fig.add_subplot(bullet_header[1,1])
-    make_header(bullet_header_bottom_r, '... une couverture complète', halign='left', width=30, fontsize=14)
-
-    spark_header = col_headers[0,2:].subgridspec(2,2, hspace=1)
-    spark_header_top = fig.add_subplot(spark_header[0,:])
-    make_header(spark_header_top, "Nb d'injections moy. mobile 7jrs", width=35, fontsize=12)
-    spark_header_bottom_l = fig.add_subplot(spark_header[1,0])
-    make_header(spark_header_bottom_l, "30 derniers jrs", width=20, fontsize=11)
-    spark_header_bottom_r = fig.add_subplot(spark_header[1,1])
-    make_header(spark_header_bottom_r, "7 dern. jrs\n%p.r. 7 jrs préc.", width=None, fontsize=11)
-
-    grid = table[1,1].subgridspec(n_rows, 4, width_ratios=[5, 5, 2, 1.2])
-
-    for idx in range(n_rows-1):
-        nom_dep = df_all_dep.loc[idx,:]['nom_dep']
-        ax = fig.add_subplot(row_headers[idx + 1])
-        make_header(ax, nom_dep, halign='right')
-        plt.xticks([])
-        plt.yticks([])
+    grid = fig.add_gridspec(n_rows, 5, width_ratios=[2, 5, 5, 2, 1.2])
     
     # france row
-    ax_fr = fig.add_subplot(row_headers[0])
+    nom_dep = 'France'
+    ax_fr = fig.add_subplot(grid[0, 0])
     make_header(ax_fr, 'France', halign='right')
-    plt.xticks([])
-    plt.yticks([])
+    # plt.xticks([])
+    # plt.yticks([])
 
-    div_dose1 = grid[0, 0].subgridspec(1, 2, width_ratios=[6,1])
+    # ajout d'un gridspec vide pour bon alignement du pourcentage
+    div_dose1 = grid[0, 1].subgridspec(1, 2, width_ratios=[6,1])
     ax_fr_dose1 = fig.add_subplot(div_dose1[0,0])
     make_bullet(ax_fr_dose1, df_france, df_france, dose=1)
 
-    div_dose2 = grid[0, 1].subgridspec(1, 2, width_ratios=[6,1])
+    div_dose2 = grid[0, 2].subgridspec(1, 2, width_ratios=[6,1])
     ax_fr_dose2 = fig.add_subplot(div_dose2[0,0])
     make_bullet(ax_fr_dose2, df_france, df_france, dose=2)
 
     df_inj_fr = df_france['mm_injections'].iloc[0]
-    ax_fr_spark =  fig.add_subplot(grid[0, 2])
+    ax_fr_spark =  fig.add_subplot(grid[0, 3])
     make_sparkline(ax_fr_spark, df_inj_fr)
     
-    ax_fr_card = fig.add_subplot(grid[0, 3])
+    ax_fr_card = fig.add_subplot(grid[0, 4])
     make_card(ax_fr_card, df_inj_fr)
 
     for row in range(0,n_rows-1):
+        nom_dep 
         df_dep = df_all_dep.loc[[row],:]
+        nom_dep = df_dep['nom_dep'].iloc[0]
+        ax_nom_dep = fig.add_subplot(grid[row+1, 0])
+        make_header(ax_nom_dep, nom_dep, fontsize=14, halign='right')
+
         dep = df_dep['dep'].iloc[0]
-        div_dose1 = grid[row+1, 0].subgridspec(1, 2, width_ratios=[6,1])
+        div_dose1 = grid[row+1, 1].subgridspec(1, 2, width_ratios=[6,1])
         ax_dose1 = fig.add_subplot(div_dose1[0,0])
         make_bullet(ax_dose1, df_france, df_dep, dep, dose=1)
 
-        div_dose2 = grid[row+1, 1].subgridspec(1, 2, width_ratios=[6,1])
+        div_dose2 = grid[row+1, 2].subgridspec(1, 2, width_ratios=[6,1])
         ax_dose2 = fig.add_subplot(div_dose2[0,0])
         make_bullet(ax_dose2, df_france, df_dep, dep, dose=2)
 
         df_inj = df_dep['mm_injections'].iloc[0]
-        ax_spark =  fig.add_subplot(grid[row+1, 2])
+        ax_spark =  fig.add_subplot(grid[row+1, 3])
         make_sparkline(ax_spark, df_inj)
         
-        ax_card = fig.add_subplot(grid[row+1, 3])
+        ax_card = fig.add_subplot(grid[row+1, 4])
         make_card(ax_card, df_inj)
 
         # plt.subplots_adjust(left=0, right=0.9)
