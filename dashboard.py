@@ -195,8 +195,10 @@ def make_bullet(ax, df, target, dose=1):
 
 def make_sparkline(ax, df):
     markers_on = [-1]
-    ax.plot(df['ratio'], '-o', color=colors['sparkline'], markevery=markers_on)
-    ax.fill_between(df.index, df.min(), df.iloc[:,0], color=colors['sparkline'], 
+    # on graph les 30 derniers jours
+    df_30 = df.tail(30)
+    ax.plot(df_30.jour, df_30['ratio'], '-o', color=colors['sparkline'], markevery=markers_on)
+    ax.fill_between(df_30.jour, df_30.ratio.min(), df_30.ratio, color=colors['sparkline'], 
         alpha = 0.2)
     ax.axis('off')
     ax.margins(y=0.6)
@@ -234,7 +236,7 @@ def make_card(ax, df):
     else:
         color_pc = colors['value-']
 
-    value = human_format(last, k=True)
+    value = f"{last * 1000}" & u"\u2030" # .format(last * 1000) # human_format(last, k=True)
     pc = "{:+.2%}".format(pc)
     ax.text(x=0.5, y=0.5, s=value,  fontsize=14, ha='center', va='bottom', transform=ax.transAxes)
     ax.text(x=0.5, y=0.5, s=pc, color=color_pc, fontsize = 10, ha='center', va='top', transform=ax.transAxes)
@@ -273,7 +275,11 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 
 def make_table(df, age=0):
 
-    df_france = df[df.clage_vacsi == age].copy()
+    df_age = df[(df.dep != '00') & (df.clage_vacsi == age)].copy()
+    # départements triés par % de couverture complète décroissant
+    sorted = df_age[df_age.jour == max(df_age.jour)].sort_values(by='couv_complet', ascending=False).reset_index()
+
+    df_france = df[(df.dep == '00') & (df.clage_vacsi == age)].copy()
     target_dose1 = df_france['n_cum_dose1'].iloc[-1]
     target_complet = df_france['n_cum_complet'].iloc[-1]
 
@@ -301,7 +307,7 @@ def make_table(df, age=0):
     header_sparkline_right = header_fig.add_subplot(header_div[1,4])
     make_header(header_sparkline_right, "7 dern. jrs \n % p.r 7 jrs préc.", fontsize=11, width = 13, fontcolor=colors['header_font'])
     
-    n_dep = df.dep.unique().shape[0]
+    n_dep = 15 # df.dep.unique().shape[0]
     n_rows =  n_dep + 1
     n_cols = 4
 
@@ -327,35 +333,31 @@ def make_table(df, age=0):
     ax_fr_dose2 = fig.add_subplot(div_dose2[0,0])
     make_bullet(ax_fr_dose2, df_france, target_complet, dose=2)
 
-    df_inj_fr = df_france[['ratio']]
     ax_fr_spark =  fig.add_subplot(grid[0, 3])
-    make_sparkline(ax_fr_spark, df_inj_fr)
+    make_sparkline(ax_fr_spark, df_france)
     
     ax_fr_card = fig.add_subplot(grid[0, 4])
-    make_card(ax_fr_card, df_inj_fr)
+    make_card(ax_fr_card, df_france)
 
-    for row in range(0,n_rows-1):
-        nom_dep 
-        df_dep = df_all_dep.loc[[row],:]
+    for idx, dep in enumerate(sorted.dep[:15]):
+        df_dep = df_age[df_age.dep == dep].copy()
         nom_dep = df_dep['nom_dep'].iloc[0]
-        ax_nom_dep = fig.add_subplot(grid[row+1, 0])
+        ax_nom_dep = fig.add_subplot(grid[idx+1, 0])
         make_header(ax_nom_dep, nom_dep, fontsize=14, halign='right')
 
-        dep = df_dep['dep'].iloc[0]
-        div_dose1 = grid[row+1, 1].subgridspec(1, 2, width_ratios=[6,1])
+        div_dose1 = grid[idx+1, 1].subgridspec(1, 2, width_ratios=[6,1])
         ax_dose1 = fig.add_subplot(div_dose1[0,0])
-        make_bullet(ax_dose1, df_france, df_dep, dep, dose=1)
+        make_bullet(ax_dose1, df_dep, target_dose1, dose=1)
 
-        div_dose2 = grid[row+1, 2].subgridspec(1, 2, width_ratios=[6,1])
+        div_dose2 = grid[idx+1, 2].subgridspec(1, 2, width_ratios=[6,1])
         ax_dose2 = fig.add_subplot(div_dose2[0,0])
-        make_bullet(ax_dose2, df_france, df_dep, dep, dose=2)
+        make_bullet(ax_dose2, df_dep, target_complet, dose=2)
 
-        df_inj = df_dep['mm_injections'].iloc[0]
-        ax_spark =  fig.add_subplot(grid[row+1, 3])
-        make_sparkline(ax_spark, df_inj)
+        ax_spark =  fig.add_subplot(grid[idx+1, 3])
+        make_sparkline(ax_spark, df_dep)
         
-        ax_card = fig.add_subplot(grid[row+1, 4])
-        make_card(ax_card, df_inj)
+        ax_card = fig.add_subplot(grid[idx+1, 4])
+        make_card(ax_card, df_dep)
 
         # plt.subplots_adjust(left=0, right=0.9)
         plt.xticks([])
