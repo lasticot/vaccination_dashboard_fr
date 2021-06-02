@@ -1,10 +1,11 @@
 #%%
 import copy
+from numpy.lib.npyio import load
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-from dashboard import compute_all, make_table
+from dashboard import compute_all, load_format_data, make_table
 
 clages_selected = {
     "Tout âge à partir de 24 ans": None, 
@@ -20,7 +21,7 @@ clages_selected = {
 }
 @st.cache
 def computations():
-    result = compute_all()
+    result = load_format_data()
     return result
 
 def display_table(result, age=None):

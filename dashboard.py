@@ -176,7 +176,7 @@ def compute_all():
 # bullet chart
 ################
 
-def make_bullet(ax, df, target, dose=1):
+def make_bullet(ax, df, target=None, dose=1):
 
     if dose == 1:
         score = df['couv_dose1'].iloc[-1]
@@ -191,7 +191,7 @@ def make_bullet(ax, df, target, dose=1):
     ax.set_aspect(0.015)
     ax.barh(0.5, 1, height=6, color=colors['bullet_bkg'], align='center')
     ax.barh(0.5, score,  height=3, color=bar_color, align='center')
-    if df.dep.unique()[0] != '00':
+    if target:
         ax.axvline(target, color='black', ymin=0.15, ymax=0.85)
     ax.set_xlim([0,1])
     ax.set_facecolor(color='lightblue')
@@ -294,8 +294,8 @@ def make_table(df, age=0):
     sorted = df_age[df_age.jour == max(df_age.jour)].sort_values(by='couv_complet', ascending=False).reset_index()
 
     df_france = df[(df.dep == '00') & (df.clage_vacsi == age)].copy()
-    target_dose1 = df_france['n_cum_dose1'].iloc[-1]
-    target_complet = df_france['n_cum_complet'].iloc[-1]
+    target_dose1 = df_france['couv_dose1'].iloc[-1]
+    target_complet = df_france['couv_complet'].iloc[-1]
 
     # header figure
     header_fig = plt.figure(figsize=(15, 1.3), facecolor=colors['bullet_bar_complet'])
@@ -315,13 +315,13 @@ def make_table(df, age=0):
     header_bullet_right = header_fig.add_subplot(header_div[1,2])
     make_header(header_bullet_right, "...entièrement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
     header_sparkline_top = header_fig.add_subplot(header_div[0,3:])
-    make_header(header_sparkline_top, "Nb d'injections moy. mobile 7jrs", fontsize=12, width=18, fontcolor=colors['header_font'])
+    make_header(header_sparkline_top, "Nb d'injections hebdo par habitant non vacciné", fontsize=12, width=22, fontcolor=colors['header_font'])
     header_sparkline_left = header_fig.add_subplot(header_div[1,3])
     make_header(header_sparkline_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
     header_sparkline_right = header_fig.add_subplot(header_div[1,4])
     make_header(header_sparkline_right, "7 dern. jrs \n % p.r 7 jrs préc.", fontsize=11, width = 13, fontcolor=colors['header_font'])
     
-    n_dep = 15 # df.dep.unique().shape[0]
+    n_dep = df.dep.unique().shape[0]
     n_rows =  n_dep + 1
     n_cols = 4
 
@@ -341,11 +341,11 @@ def make_table(df, age=0):
     # ajout d'un gridspec vide pour bon alignement du pourcentage
     div_dose1 = grid[0, 1].subgridspec(1, 2, width_ratios=[6,1])
     ax_fr_dose1 = fig.add_subplot(div_dose1[0,0])
-    make_bullet(ax_fr_dose1, df_france, target_dose1, dose=1)
+    make_bullet(ax_fr_dose1, df_france, dose=1)
 
     div_dose2 = grid[0, 2].subgridspec(1, 2, width_ratios=[6,1])
     ax_fr_dose2 = fig.add_subplot(div_dose2[0,0])
-    make_bullet(ax_fr_dose2, df_france, target_complet, dose=2)
+    make_bullet(ax_fr_dose2, df_france, dose=2)
 
     ax_fr_spark =  fig.add_subplot(grid[0, 3])
     make_sparkline(ax_fr_spark, df_france)
@@ -353,7 +353,7 @@ def make_table(df, age=0):
     ax_fr_card = fig.add_subplot(grid[0, 4])
     make_card(ax_fr_card, df_france)
 
-    for idx, dep in enumerate(sorted.dep[:15]):
+    for idx, dep in enumerate(sorted.dep):
         df_dep = df_age[df_age.dep == dep].copy()
         nom_dep = df_dep['nom_dep'].iloc[0]
         ax_nom_dep = fig.add_subplot(grid[idx+1, 0])
