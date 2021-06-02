@@ -1,5 +1,6 @@
 #%%
 from collections import OrderedDict
+from os import rename
 import textwrap
 import numpy as np
 import pandas as pd
@@ -39,9 +40,22 @@ def load_format_data():
 
     df2 = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str})
 
+    # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
+    df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
+        parse_dates=['jour'], dtype={'dep':str})
+
     # changement de nom
     vacc = df1.copy()
     departements = df2.copy()
+    france = df3.copy()
+
+    # on supprime les dep '00' du fichier départemental
+    vacc = vacc[vacc.dep != '00'].copy()
+    # je remplace la colonne fra par une colonne dep avec '00'
+    france = france.rename(columns={'fra': 'dep'})
+    france['dep'] = '00'
+
+    vacc = pd.concat([vacc, france], ignore_index=True)
 
     vacc[['couv_dose1', 'couv_complet']] = vacc[['couv_dose1', 'couv_complet']] / 100
     # nb total d'injections, somme mobile 7 derniers jours
@@ -236,7 +250,7 @@ def make_card(ax, df):
     else:
         color_pc = colors['value-']
 
-    value = f"{last * 1000}" & u"\u2030" # .format(last * 1000) # human_format(last, k=True)
+    value = f"{last * 1000:.2f}" + u"\u2030" # .format(last * 1000) # human_format(last, k=True)
     pc = "{:+.2%}".format(pc)
     ax.text(x=0.5, y=0.5, s=value,  fontsize=14, ha='center', va='bottom', transform=ax.transAxes)
     ax.text(x=0.5, y=0.5, s=pc, color=color_pc, fontsize = 10, ha='center', va='top', transform=ax.transAxes)
