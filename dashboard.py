@@ -1,5 +1,6 @@
 #%%
 from collections import OrderedDict
+from datetime import datetime, timedelta
 from os import rename
 import textwrap
 import numpy as np
@@ -46,39 +47,104 @@ def load_format_data():
     df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
         parse_dates=['jour'], dtype={'dep':str})
 
+    # données des cas détectés 
+    df4 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'])
+
     # changement de nom
     vacc = df1.copy()
     departements = df2.copy()
     france = df3.copy()
+    test = df4.copy()
 
-    # on supprime les dep '00' '970' et '750' (??) du fichier départemental
-    excluded = ['00', '750', '970']
+    # on supprime les dep '00' '970' et '750' (??) du fichier départemental et 98 qui n'est pas dans fichier test
+    # (les dep '00' qui sont censés contenir l'agg au niveau France sont vides donc remplcées par le fichier fra)
+    excluded = ['00', '750', '970', 98]
     vacc = vacc[~vacc.dep.isin(excluded)].copy()
-    # je remplace la colonne fra par une colonne dep avec '00'
+    # je remplace la colonne fra du fichier France par une colonne dep avec '00'
     france = france.rename(columns={'fra': 'dep'})
     france['dep'] = '00'
-
     vacc = pd.concat([vacc, france], ignore_index=True)
 
-    vacc[['couv_dose1', 'couv_complet']] = vacc[['couv_dose1', 'couv_complet']] / 100
+    # on garde les 37 derniers jours
+    last_date = min(max(vacc.jour), max(test.jour))
+    first_date = last_date - timedelta(days=37)
+    vacc = vacc[(first_date <= vacc.jour) & (vacc.jour <= last_date)]
+    test = test[(first_date <= test.jour) & (test.jour <= last_date)]
+
+    # harmonisation des classes d'âges
+    # - fichier vaccin commence à 18 ans, fichier incidence commence à 19 ans
+    # - ajouter âge 0 dans incidence pour l'aggrégation
+    # - dans vaccination fusionner les classes d'âge 24-29, 64-69, 74-79
+    # - dans incidence fusionner les classes d'âge 80-90 et supprimer les âges 0, 9, 19
+    def new_age_vacc(age):
+        if age == 24:
+            return 29
+        elif age == 64:
+            return 69
+        elif age == 74:
+            return 79
+        else:
+            return age
+    def new_age_test(age):
+        if age in [89, 90]:
+            return 80
+        else:
+            return age
+
+    # Remplace clage puis groupby dans vacc 
+    vacc.rename(columns={'clage_vacsi':'clage'}, inplace=True)
+    vacc['clage'] = vacc.clage.apply(new_age_vacc)
+    vacc = vacc.groupby(['dep', 'clage',  'jour'], as_index=False).sum()
+
+    # suppression clage 0, 9, 19, remplace clages puis groupby
+    test.rename(columns={'cl_age90':'clage'}, inplace=True)
+    test = test[test.clage >= 29]
+    test['clage'] = test.clage.apply(new_age_test)
+    test = test.groupby(['dep', 'clage', 'jour'], as_index=False).sum()
+
+    # dans test ajouter une classe d'âge 0 aggrégeant toutes les clages
+    test_clage_agg = test.groupby(['dep', 'jour'], as_index=False).sum()
+    test_clage_agg['clage'] = 0
+    test = pd.concat([test, test_clage_agg], ignore_index=True)
+
+    # dans test ajouter un dep '00' aggrégeant au niveau france
+    test_fr_agg = test.groupby(['clage', 'jour'], as_index=False).sum()
+    test_fr_agg['dep'] = '00'
+    test = pd.concat([test, test_fr_agg], ignore_index=True)
+
+    vacc = vacc.merge(test[['dep', 'clage', 'jour', 'P', 'T', 'pop']], on=['dep', 'clage', 'jour'], suffixes=(None, "_test"))
+    
+    # recalcul du % de couverture en utilisant la pop du fichier test
+    vacc['couv_dose1'] = vacc['n_cum_dose1'] / vacc['pop']
+    vacc['couv_complet'] = vacc['n_cum_complet'] / vacc['pop']
     # nb total d'injections, somme mobile 7 derniers jours
     vacc['inj'] = vacc['n_dose1'] + vacc['n_complet']
-    vacc['inj'] = vacc['inj'].rolling(7).sum()
     # Nb de personnes non vaccinées estimée, somme mobile 7 derniers jours
-    vacc['non_vacc'] = (vacc['n_cum_complet'] * (1 - vacc['couv_complet'])) / vacc['couv_complet']
-    vacc['non_vacc'] = vacc['non_vacc'].rolling(7).sum()
+    vacc['non_vacc'] = vacc['pop'] - vacc['n_cum_complet']
     # ratio du nombre d'injections sur la part des personnes restant à vacciner
-    if vacc['non_vacc'].iloc[-1] != 0:
-        vacc['ratio'] = vacc['inj'] / (vacc['non_vacc'])
-    else:
-        np.nan
+    # division par pop au lieu de non_vacc pour éviter div par 0
+    # la colonne ratio n'est qu'un placeholder. Il est recalculé après le pivot
+    vacc['ratio'] = vacc['inj'].div(vacc['pop']).replace(np.inf, np.nan)
+    # calcul de l'incidence pour 100_000 habitants
+    vacc['inc'] = vacc['P'].div(vacc['pop']).replace(np.inf, np.nan) * 100_000
 
-    vacc = vacc.merge(departements, how='left', on='dep')
-    vacc['nom_dep'] = vacc.dep.str.cat(vacc.nom_dep, sep=' - ')
-    # Remplacer nom_dep NaN par 'France'
-    vacc['nom_dep'].replace(np.nan, 'France', inplace=True)
+    # il faut unstack pour pouvoir calculer les moyennes et sommes mobiles
+    # 3 levels pour les col : 
+    #   - indicateur
+    #   - clage
+    #   - dep
+    pivot = vacc.pivot(index='jour', columns=['clage', 'dep'], values=['couv_dose1', 'couv_complet', 'ratio', 'inj', 'non_vacc', 'inc'])
+    # calcul du ratio nb d'inj / non_vaccinés somme mobile 7j
+    pivot['ratio'] = pivot['inj'].div(pivot['non_vacc']).replace(np.inf, np.nan).rolling(7).sum()
+    # calcul de la mm 7j de l'incidence
+    pivot['inc'] = pivot['inc'].rolling(7).mean()
 
-    return vacc
+    # vacc = vacc.merge(departements, how='left', on='dep')
+    # vacc['nom_dep'] = vacc.dep.str.cat(vacc.nom_dep, sep=' - ')
+    # # Remplacer nom_dep NaN par 'France'
+    # vacc['nom_dep'].replace(np.nan, 'France', inplace=True)
+
+    return pivot
 #%%
 ###########
 # Values computation
@@ -92,7 +158,7 @@ def compute_vacc(vacc, dep_row):
     dep = dep_row['dep']
     age = dep_row['clage']
     # filter vacc on  dep and age
-    v_dep_age = vacc[(vacc['dep'] == dep) & (vacc['clage_vacsi'] == age)].copy()
+    v_dep_age = vacc[(vacc['dep'] == dep) & (vacc['clage'] == age)].copy()
 
     # total vaccinated
     total_dose1 = v_dep_age['n_dose1'].sum()
@@ -294,7 +360,7 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 
 def make_table(df, age=0):
 
-    df_age = df[df.clage_vacsi == age].copy()
+    df_age = df[df.clage == age].copy()
     # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
     df_france = df_age[df_age.dep == '00']
     df_france = df_france[df_france.jour == max(df_france.jour)].copy()
