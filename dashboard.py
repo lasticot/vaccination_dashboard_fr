@@ -368,30 +368,3 @@ def make_table(df, age=0):
         plt.yticks([])
     
     return header_fig, fig;
-    
-
-
-# %%
-
-def check_dep(dep, age):
-    global vacc, departements, result
-
-    df1 = vacc[(vacc['dep'] == dep) & (vacc['clage_vacsi'] == age)].copy().set_index('jour')
-    df1['total'] = df1.n_dose1 + df1.n_complet
-    df1['mm'] = df1.total.rolling(7).mean()
-    to_plot_mm = df1[['mm']].iloc[-30:]
-    to_plot_inj = df1[['total']].iloc[-30:]
-
-    df2 = result['all'].copy()
-    df2 = df2[(df2['age'] == age) & (df2['dep'] == dep)].copy()
-    df_inj = df2['mm_injections'].iloc[0]
-
-    fig, ax = plt.subplots(1, 3, figsize=(15, 3))
-
-    ax[0].plot(to_plot_mm)
-    ax[1].plot(to_plot_inj)
-    make_card(ax[2], df_inj)
-
-    plt.show()
-    return (to_plot_mm, to_plot_inj)
-
