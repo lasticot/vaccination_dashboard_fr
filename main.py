@@ -19,6 +19,16 @@ clages_selected = {
     '75 - 79 ans': 79,
     '80 ans et plus' : 80
 }
+st.markdown(
+        f"""
+<style>
+    .reportview-container .main .block-container{{
+        max-width: 1000px;
+    }}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
 @st.cache
 def computations():
     result = load_format_data()
@@ -30,7 +40,7 @@ def display_table(result, age=None):
 with st.spinner("Le chargement des données est en cours. \n Encore un peu de patience avant de pouvoir les explorer!"):
     result = copy.deepcopy(computations())
 age = st.selectbox("Classe d'âge", list(clages_selected.keys()))
-with st.spinner("Calcul du tableau pour les 101 départements"):
+with st.spinner("Calcul du tableau pour les départements. Cela peut prendre du temps..."):
     fig_header, fig_table = make_table(result, clages_selected[age])
 st.pyplot(fig_header)
 st.pyplot(fig_table)

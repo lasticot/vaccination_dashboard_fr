@@ -305,7 +305,6 @@ def make_table(df, age=0):
     df_include = df_age[include]
     df_include_sorted = df_include[df_include.jour == max(df_include.jour)].sort_values(by='couv_complet', ascending=False)
     sorted = pd.concat([df_france, df_include_sorted, df_exclude_sorted]).reset_index()
-    print(sorted[sorted.nom_dep == 'France'])
 
     target_dose1 = df_france['couv_dose1'].iloc[-1]
     target_complet = df_france['couv_complet'].iloc[-1]
