@@ -360,10 +360,11 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 
 def make_table(df, age=0):
 
-    df_age = df[df.clage == age].copy()
+    df_age = df.loc[:, (slice(None), age, slice(None))].copy()
     # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
+    df_france = df_age.loc[:, slice(None), slice(None), ('00')]
     df_france = df_age[df_age.dep == '00']
-    df_france = df_france[df_france.jour == max(df_france.jour)].copy()
+    df_france = df_france[df_france.index == max(df_france.index)].copy()
     exclude = df_age.dep.isin(['970', '971', '972', '973', '974', '975', '976', '977', '978', '98'])
     df_exclude = df_age[exclude]
     df_exclude_sorted = df_exclude[df_exclude.jour == max(df_exclude.jour)].sort_values(by='couv_complet', ascending=False)
