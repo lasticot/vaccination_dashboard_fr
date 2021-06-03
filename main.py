@@ -8,7 +8,7 @@ import streamlit as st
 from dashboard import compute_all, load_format_data, make_table
 
 clages_selected = {
-    "Tout âge à partir de 24 ans": None, 
+    '18 - 24 ans': 24, 
     '24 - 29 ans': 29, 
     '30 - 39 ans': 39, 
     '40 - 49 ans': 49, 
