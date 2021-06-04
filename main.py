@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-from dashboard import compute_all, load_format_data, make_table
+from dashboard import  load_format_data, make_table
 
 clages_selected = {
     '20 - 29 ans': 29, 
