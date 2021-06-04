@@ -5,9 +5,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-from dashboard import  load_format_data, make_table
+from dashboard import  load_compute_data, make_table
 
 clages_selected = {
+    '19 ans et plus': 0,
     '20 - 29 ans': 29, 
     '30 - 39 ans': 39, 
     '40 - 49 ans': 49, 
@@ -28,9 +29,9 @@ st.markdown(
     )
 @st.cache
 def computations():
-    result = load_format_data()
+    result = load_compute_data()
     return result
-
+@st.cache
 def display_table(result, age=None):
     make_table(result, age)
 
