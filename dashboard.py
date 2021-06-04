@@ -299,8 +299,14 @@ def filter_sort_selection(df, age=0, dep=None):
         filtered = df.loc[:, (slice(None), slice(None), ['00', dep])]
     # sinon affiche tous les département pour clage sélectionnée
     else:
-        df_age = df.loc[:, (slice(None), age, slice(None))].copy()
-        # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
+        filtered = df.loc[:, (slice(None), age, slice(None))].copy()
+    # compute targets for couv_dose1, couv_complet
+    targets = filtered.loc[:, (['couv_dose1', 'couv_complet'], slice(None), '00')].iloc[-1]
+    targets = targets.droplevel([None, 'dep'])
+    if dep:
+        sorted = filtered.loc[:,(slice(None), slice(None), dep)].droplevel('dep')
+        sorted = sorted.swaplevel(0, 1, axis=1)
+    # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
         couv_complet = pd.DataFrame(df_age['couv_complet'][age].iloc[-1].sort_values(ascending=False).rename('couv'))
         sort_france = couv_complet.loc[['00']]
         com = ['971', '972', '973', '974', '975', '976', '977', '978']
@@ -344,15 +350,6 @@ def make_table_header(age=0, dep=None):
 def make_table(df, age=0, dep=None):
     df = filter_sort_selection(df, age, dep)
         
-    # df_age = df.loc[:, (slice(None), age, slice(None))].copy()
-    # # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
-    # couv_complet = pd.DataFrame(df_age['couv_complet'][age].iloc[-1].sort_values(ascending=False).rename('couv'))
-    # sort_france = couv_complet.loc[['00']]
-    # com = ['971', '972', '973', '974', '975', '976', '977', '978']
-    # sort_com = couv_complet.loc[com].sort_values('couv', ascending=False)
-    # sort_all = couv_complet[(couv_complet.index != '00') & (~couv_complet.index.isin(com))].sort_values('couv', ascending=False)
-    # sorted = pd.concat([sort_france, sort_all, sort_com])
-
     target_dose1 = df['couv_dose1'][age].iloc[-1]['00']
     target_complet = df['couv_complet'][age].iloc[-1]['00']
 
@@ -360,36 +357,6 @@ def make_table(df, age=0, dep=None):
     n_dep = len(sorted.index.unique())
     n_rows =  n_dep
     fig_height = n_rows * 0.8
-
-    # header figure
-    header_fig = plt.figure(figsize=(fig_width, 1.3), facecolor=colors['bullet_bar_complet'])
-    header_div = header_fig.add_gridspec(2, n_cols, hspace=1.5, wspace=wspace, width_ratios=width_ratios)
-    header_nom_dep = header_fig.add_subplot(header_div[0:1,0])
-    make_header(header_nom_dep, "")
-    header_bullet_top = header_fig.add_subplot(header_div[0,1:3])
-    if age == 0:
-        make_header(header_bullet_top, f"Pourcentage de la population...", width=60, fontsize=14, fontcolor=colors['header_font'])
-    else:
-        clage = clages[str(age)]
-        make_header(header_bullet_top, f"Pourcentage de la classe d'âge {clage}...", width=60, fontsize=14, fontcolor=colors['header_font'])
-
-    header_bullet_left = header_fig.add_subplot(header_div[1,1])
-    make_header(header_bullet_left, "...partiellement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
-    header_bullet_right = header_fig.add_subplot(header_div[1,2])
-    make_header(header_bullet_right, "...entièrement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
-    header_sparkline_top = header_fig.add_subplot(header_div[0,3:5])
-    make_header(header_sparkline_top, "Nb d'inj. 7 jrs glissants pour 100 pers. non vaccinées", fontsize=12, width=26, fontcolor=colors['header_font'])
-    header_sparkline_left = header_fig.add_subplot(header_div[1,3])
-    make_header(header_sparkline_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
-    header_sparkline_right = header_fig.add_subplot(header_div[1,4])
-    make_header(header_sparkline_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
-
-    header_inc_top = header_fig.add_subplot(header_div[0,5:])
-    make_header(header_inc_top, "Incidence parmi les pers non vaccinées moy. glissante 7 jrs", fontsize=12, width=26, fontcolor=colors['header_font'])
-    header_inc_left = header_fig.add_subplot(header_div[1,5])
-    make_header(header_inc_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
-    header_inc_right = header_fig.add_subplot(header_div[1,6])
-    make_header(header_inc_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
     
     fig = plt.figure(figsize=(fig_width, fig_height), facecolor=colors['background'])
 
@@ -424,6 +391,6 @@ def make_table(df, age=0, dep=None):
         plt.xticks([])
         plt.yticks([])
     
-    return header_fig, fig;
+    return fig;
 
 
