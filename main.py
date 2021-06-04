@@ -8,15 +8,12 @@ import streamlit as st
 from dashboard import compute_all, load_format_data, make_table
 
 clages_selected = {
-    '18 - 24 ans': 24, 
-    '24 - 29 ans': 29, 
+    '20 - 29 ans': 29, 
     '30 - 39 ans': 39, 
     '40 - 49 ans': 49, 
     '50 - 59 ans': 59,
-    '60 - 64 ans': 64,
-    '65 - 69 ans': 69,
-    '70 - 74 ans': 74,
-    '75 - 79 ans': 79,
+    '60 - 69 ans': 69,
+    '70 - 79 ans': 79,
     '80 ans et plus' : 80
 }
 st.markdown(
