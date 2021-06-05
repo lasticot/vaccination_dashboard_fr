@@ -293,27 +293,35 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 # Full table
 ###############
 
-def filter_sort_selection(df, age=0, dep=None):
-    # Si un dep est sélectionné affiche toutes les classes d'âge pour ce dep et dep '00' (pour calcul target)
+def filter_sort_selection(df, dep=None, age=0):
+    # calcul targets pour couv_dose1, couv_complet retournées dans un df
+    #  - dep sélectionné : target niveau France pour chaque clage (différent pour chaque clage)
+    #  - age sélectionné : target niveau France pour la clage sélectionnée (même target pour tous les dep)
+    last_date = df.index[-1]
+    targets = df.loc[last_date, (['couv_dose1', 'couv_complet'], slice(None), '00')].droplevel('dep')
+    # Si un dep est sélectionné affiche toutes les classes d'âge pour ce dep (même si une clage a été sélectionnée)
     if dep:
-        filtered = df.loc[:, (slice(None), slice(None), ['00', dep])]
-    # sinon affiche tous les département pour clage sélectionnée
+        age = slice(None)
+        to_drop = 'dep'
+    # si pas de dep sélectionné, affiche tous les dep pour la clage sélectionnée (0 par défaut)
     else:
-        filtered = df.loc[:, (slice(None), age, slice(None))].copy()
-    # compute targets for couv_dose1, couv_complet
-    targets = filtered.loc[:, (['couv_dose1', 'couv_complet'], slice(None), '00')].iloc[-1]
-    targets = targets.droplevel([None, 'dep'])
+        dep = slice(None)
+        to_drop = 'clage'
+    filtered = df.loc[:, (slice(None), age, dep)].droplevel(to_drop, axis=1)
+    # tri des départements par couv_complet décroissant avec France en tête et COM à la fin
+    # retourne un df avec pour col : 
+    #   - level 0 : indicateur
+    #   - level 1 : clage
     if dep:
-        sorted = filtered.loc[:,(slice(None), slice(None), dep)].droplevel('dep')
-        sorted = sorted.swaplevel(0, 1, axis=1)
-    # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
-        couv_complet = pd.DataFrame(df_age['couv_complet'][age].iloc[-1].sort_values(ascending=False).rename('couv'))
-        sort_france = couv_complet.loc[['00']]
-        com = ['971', '972', '973', '974', '975', '976', '977', '978']
-        sort_com = couv_complet.loc[com].sort_values('couv', ascending=False)
-        sort_all = couv_complet[(couv_complet.index != '00') & (~couv_complet.index.isin(com))].sort_values('couv', ascending=False)
-        filtered = pd.concat([sort_france, sort_all, sort_com])
-    return filtered
+        # tri par défaut des clages
+        sorting = filtered['couv_complet'].columns
+    else:
+        # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
+        COM = ['971', '972', '973', '974', '975', '976', '977', '978']
+        sorting = filtered.loc[last_date, 'couv_complet'].sort_values('couv_complet', ascending=False)
+        sorting = pd.concat(sorting[sorting.index=='00'], sorting[(~sorted.index in COM) & (~sorting.index == '00')], sorting[sorting.index in COM])
+        sorting = sorting.index
+    return {'df': filtered, 'targets': targets, 'sorting': sorting}
 
 def make_table_header(age=0, dep=None):
     global df_nom_dep, clages, colors, fig_width, n_cols, width_ratios, wspace
