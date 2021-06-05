@@ -1,0 +1,5 @@
+pop_dep_sexe_age.xlsx
+.vscode/
+*.ipynb
+.ipynb_checkpoints/
+__pycache__/
