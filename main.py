@@ -49,10 +49,10 @@ def filter(df, dep='every', age=None):
 
 result = load()
 
-with st.form('my form'):
+with st.sidebar.form('my form'):
     clage = st.selectbox("Classe d'âge", list(clages_selected.keys()))
     age = clages_selected[clage]
-    dep = st.selectbox("Département", list(dep_selected.index))
+    dep = st.selectbox("Département", list(dep_selected.index), index=1)
     dep = dep_selected[dep]
     submitted = st.form_submit_button('Submit')
 
