@@ -31,9 +31,9 @@ clages = {
     '80' : '80 ans et plus'
 }
 # table format
-n_cols = 7
-fig_width = 16
-width_ratios = [5, 9, 9, 5, 4, 5, 4]
+n_cols = 9
+fig_width = 19
+width_ratios = [5, 9, 9, 5, 4, 5, 4, 5, 4]
 wspace = 0.04
 
 # Lookup des noms de départements
@@ -129,17 +129,17 @@ def load_compute_data():
 
     vacc = vacc.merge(test[['dep', 'clage', 'jour', 'pos', 'test', 'pop']], on=['dep', 'clage', 'jour'], suffixes=(None, "_test"))
     
-    # recalcul du % de couverture en utilisant la pop du fichier test
+    # recalcul du % de couverture pour les nouvelles clages en utilisant la pop du fichier test
+    # !!!!!!!!!!!!!! problème pour la clage 20-29 qui est 18-29 dans le fichier vacc
     vacc['couv_dose1'] = vacc['n_cum_dose1'] / vacc['pop']
     vacc['couv_complet'] = vacc['n_cum_complet'] / vacc['pop']
     # nb total d'injections, somme mobile 7 derniers jours
     vacc['inj'] = vacc['n_dose1'] + vacc['n_complet']
     # Nb de personnes non vaccinées estimée, somme mobile 7 derniers jours
     vacc['non_vacc'] = vacc['pop'] - vacc['n_cum_complet']
-    # ratio du nombre d'injections sur la part des personnes restant à vacciner
-    # division par pop au lieu de non_vacc pour éviter div par 0
     # Colonnes qui servent de placeholder les indicateurs sont calculés après le pivot
     vacc['ratio'] = 0
+    vacc['nouveaux'] = 0
     vacc['pos_sem'] = 0
     vacc['inc_S'] = 0
     vacc['inc']   = 0
@@ -150,11 +150,13 @@ def load_compute_data():
     #   - clage
     #   - dep
     pivot = vacc.pivot(index='jour', columns=['clage', 'dep'], 
-                values=['couv_dose1', 'couv_complet', 'pop', 'ratio', 'pos', 'pos_sem', 'inj', 'non_vacc', 'inc_S', 'inc'])
+                values=['couv_dose1', 'couv_complet', 'n_dose1', 'n_complet', 'nouveaux', 'pop', 'ratio', 'pos', 'pos_sem', 'inj', 'non_vacc', 'inc_S', 'inc'])
     # Nb d'injections par semaine glissante
     pivot['inj'] = pivot['inj'].rolling(7).sum()
     # Ratio nb d'inj / non_vaccinés 1 semaine auparavant
     pivot['ratio'] = pivot['inj'].div(pivot['non_vacc'].shift(7)).replace(np.inf, np.nan) * 100
+    # Ratio du nb d'injections dose1 / inj complet
+    pivot['nouveaux'] = pivot['n_dose1'].rolling(7).sum().div(pivot['inj']).replace(np.inf, np.nan)
     # Nombre de nouveaux cas par semaine glissante
     pivot['pos_sem'] = pivot['pos'].rolling(7).sum()
     # Taux d'incidence calculée sur la population non vaccinée 1 semaine auparavant
@@ -187,7 +189,7 @@ def make_bullet(ax, df, target=None, dose=1):
     ax.barh(0.5, 1, height=6, color=colors['bullet_bkg'], align='center')
     ax.barh(0.5, score,  height=3, color=bar_color, align='center')
     if target:
-        ax.axvline(target, color='black', ymin=0.15, ymax=0.85)
+        ax.axvline(target, color='black', ymin=0.20, ymax=0.80)
     ax.set_xlim([0,1])
     ax.set_facecolor(color='lightblue')
     plt.xticks([])
@@ -232,7 +234,7 @@ def human_format(num, k=False):
     else:
         return "{}".format('{}'.format(num).rstrip('0').rstrip('.'))
 
-def make_card(ax, df, plus_good=True):
+def make_card(ax, df, plus_good=True, pourcentage=False):
     '''
     Displays the value of the metric for the last 30 days and the pc change against previous 30 days
     '''
@@ -256,7 +258,10 @@ def make_card(ax, df, plus_good=True):
     else:
         color_pc = color_dec
 
-    value = f"{last:.0f}" # .format(last * 1000) # human_format(last, k=True)
+    if pourcentage:
+        value = f"{last:.0%}"
+    else:
+        value = f"{last:.0f}" 
     pc = "({:+.0%})".format(pc)
     ax.text(x=0.5, y=0.5, s=value,  fontsize=14, ha='center', va='bottom', transform=ax.transAxes)
     ax.text(x=0.5, y=0.5, s=pc, color=color_pc, fontsize = 10, ha='center', va='top', transform=ax.transAxes)
@@ -342,18 +347,26 @@ def make_table_header(dep='every', age=0):
     make_header(header_bullet_left, "...partiellement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
     header_bullet_right = header_fig.add_subplot(header_div[1,2])
     make_header(header_bullet_right, "...entièrement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
-    header_sparkline_top = header_fig.add_subplot(header_div[0,3:5])
-    make_header(header_sparkline_top, "Nb d'inj. 7 jrs glissants pour 100 pers. non vaccinées", fontsize=12, width=26, fontcolor=colors['header_font'])
+
+    header_nouv_top = header_fig.add_subplot(header_div[0,3:5])
+    make_header(header_nouv_top, "% des primo-vaccinations sur le total des inj. 7jrs glissants", fontsize=12, width=26, fontcolor=colors['header_font'])
     header_sparkline_left = header_fig.add_subplot(header_div[1,3])
     make_header(header_sparkline_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
     header_sparkline_right = header_fig.add_subplot(header_div[1,4])
     make_header(header_sparkline_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
 
-    header_inc_top = header_fig.add_subplot(header_div[0,5:])
+    header_sparkline_top = header_fig.add_subplot(header_div[0,5:7])
+    make_header(header_sparkline_top, "Nb d'inj. pour 100 pers. non vaccinées 7 jrs glissants", fontsize=12, width=26, fontcolor=colors['header_font'])
+    header_sparkline_left = header_fig.add_subplot(header_div[1,5])
+    make_header(header_sparkline_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
+    header_sparkline_right = header_fig.add_subplot(header_div[1,6])
+    make_header(header_sparkline_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
+
+    header_inc_top = header_fig.add_subplot(header_div[0,7:])
     make_header(header_inc_top, "Incidence parmi les pers non vaccinées moy. glissante 7 jrs", fontsize=12, width=26, fontcolor=colors['header_font'])
-    header_inc_left = header_fig.add_subplot(header_div[1,5])
+    header_inc_left = header_fig.add_subplot(header_div[1,7])
     make_header(header_inc_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
-    header_inc_right = header_fig.add_subplot(header_div[1,6])
+    header_inc_right = header_fig.add_subplot(header_div[1,8])
     make_header(header_inc_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
     return header_fig
 
@@ -395,16 +408,22 @@ def make_table(data, dep='every', age=None):
         ax_dose2 = fig.add_subplot(div_dose2[0,0])
         make_bullet(ax_dose2, df.loc[:, ('couv_complet', sub)], targets.loc['couv_complet', age], dose=2)
 
-        ax_spark =  fig.add_subplot(grid[idx, 3])
+        ax_spark_nouv =  fig.add_subplot(grid[idx, 3])
+        make_sparkline(ax_spark_nouv, df.loc[:, ('nouveaux', sub)])
+        
+        ax_card_nouv = fig.add_subplot(grid[idx, 4])
+        make_card(ax_card_nouv, df.loc[:, ('nouveaux', sub)], pourcentage=True)
+
+        ax_spark =  fig.add_subplot(grid[idx, 5])
         make_sparkline(ax_spark, df.loc[:, ('ratio', sub)])
         
-        ax_card = fig.add_subplot(grid[idx, 4])
+        ax_card = fig.add_subplot(grid[idx, 6])
         make_card(ax_card, df.loc[:, ('ratio', sub)])
 
-        ax_spark_inc =  fig.add_subplot(grid[idx, 5])
+        ax_spark_inc =  fig.add_subplot(grid[idx, 7])
         make_sparkline(ax_spark_inc, df.loc[:, ('inc', sub)], plus_good=False)
         
-        ax_card_inc = fig.add_subplot(grid[idx, 6])
+        ax_card_inc = fig.add_subplot(grid[idx, 8])
         make_card(ax_card_inc, df.loc[:, ('inc', sub)], plus_good=False)
         # plt.subplots_adjust(left=0, right=0.9)
         plt.xticks([])
