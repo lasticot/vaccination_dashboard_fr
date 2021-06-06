@@ -46,32 +46,29 @@ df_nom_dep = df_nom_dep['nom_dep'].copy()
 
 def load_compute_data():
     # vaccination
-    df1 = pd.read_csv('raw.csv', delimiter=';', 
-        parse_dates=['jour'], dtype={'dep':str})
-    # df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
+    # df1 = pd.read_csv('raw.csv', delimiter=';', 
     #     parse_dates=['jour'], dtype={'dep':str})
-    df2 = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str})
+    df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
+        parse_dates=['jour'], dtype={'dep':str})
     # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
-    df3 = pd.read_csv('vacc_fr.csv', delimiter=';', 
-        parse_dates=['jour'], dtype={'dep':str})
-    # df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
+    # df2 = pd.read_csv('vacc_fr.csv', delimiter=';', 
     #     parse_dates=['jour'], dtype={'dep':str})
+    df2 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
+        parse_dates=['jour'], dtype={'dep':str})
 
     # données des cas détectés 
-    df4 = pd.read_csv('test.csv', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
-                    header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
-    # df4 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
+    # df3 = pd.read_csv('test.csv', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
     #                 header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
+    df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
+                    header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
 
     # changement de nom
     vacc = df1.copy()
-    departements = df2.copy()
-    france = df3.copy()
-    test = df4.copy()
+    france = df2.copy()
+    test = df3.copy()
 
     # on supprime les dep '00' '970' et '750' (??) du fichier départemental et 98 qui n'est pas dans fichier test
     # (les dep '00' qui sont censés contenir l'agg au niveau France sont vides donc remplcées par le fichier fra)
-    # !!! plutôt sélectionner les dep à inclure ? !!!!!!!!
     excluded = ['00', '750', '98']
     vacc = vacc[~vacc.dep.isin(excluded)].copy()
     # je remplace la colonne fra du fichier France par une colonne dep avec '00'
