@@ -21,16 +21,13 @@ colors = {
 }
 
 clages = {
-    '0'  : '18 ans et plus',
-    '24' : '18 - 24 ans',
-    '29' : '24 - 29 ans', 
+    '0'  : '20 ans et plus',
+    '29' : '20 - 29 ans', 
     '39' : '30 - 39 ans',
     '49' : '40 - 49 ans', 
     '59' : '50 - 59 ans', 
-    '64' : '60 - 64 ans', 
-    '69' : '65 - 69 ans', 
-    '74' : '70 - 74 ans', 
-    '79' : '75 - 79 ans', 
+    '69' : '60 - 69 ans', 
+    '79' : '70 - 79 ans', 
     '80' : '80 ans et plus'
 }
 # table format
@@ -40,8 +37,8 @@ width_ratios = [2, 5, 5, 2, 1.5, 2, 1.5]
 wspace = 0.04
 
 # Lookup des noms de départements
-df_nom_dep = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str})
-df_nom_dep = df_nom_dep.set_index('dep')
+df_nom_dep = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str}, usecols=['dep', 'nom_dep']).set_index('dep')
+df_nom_dep = df_nom_dep['nom_dep'].copy()
 
 #######
 # chargement et formattage des data
@@ -49,18 +46,24 @@ df_nom_dep = df_nom_dep.set_index('dep')
 
 def load_compute_data():
     # vaccination
-    df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
+    df1 = pd.read_csv('raw.csv', delimiter=';', 
         parse_dates=['jour'], dtype={'dep':str})
+    # df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
+    #     parse_dates=['jour'], dtype={'dep':str})
 
     df2 = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str})
-
+ #
     # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
-    df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
+    df3 = pd.read_csv('vacc_fr.csv', delimiter=';', 
         parse_dates=['jour'], dtype={'dep':str})
+    # df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
+    #     parse_dates=['jour'], dtype={'dep':str})
 
     # données des cas détectés 
-    df4 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
+    df4 = pd.read_csv('test.csv', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
                     header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
+    # df4 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
+    #                 header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
 
     # changement de nom
     vacc = df1.copy()
@@ -151,7 +154,7 @@ def load_compute_data():
     # Nb d'injections par semaine glissante
     pivot['inj'] = pivot['inj'].rolling(7).sum()
     # Ratio nb d'inj / non_vaccinés 1 semaine auparavant
-    pivot['ratio'] = pivot['inj'].div(pivot['non_vacc'].shift(7)).replace(np.inf, np.nan)
+    pivot['ratio'] = pivot['inj'].div(pivot['non_vacc'].shift(7)).replace(np.inf, np.nan) * 100
     # Nombre de nouveaux cas par semaine glissante
     pivot['pos_sem'] = pivot['pos'].rolling(7).sum()
     # Taux d'incidence calculée sur la population non vaccinée 1 semaine auparavant
@@ -171,22 +174,19 @@ def load_compute_data():
 # bullet chart
 ################
 
-def make_bullet(ax, df, dep, target=None, dose=1):
-
-    if dose == 1:
-        score = df['couv_dose1'].iloc[-1]
-    elif dose == 2:
-        score = df['couv_complet'].iloc[-1]
-
-    if dose == 1:
-        bar_color = colors['bullet_bar_1dose']
+def make_bullet(ax, df, target=None, dose=1):
+    '''
+    returns ax
+    '''
+    score = df[-1]
     if dose == 2:
+        bar_color = colors['bullet_bar_1dose']
+    else:
         bar_color = colors['bullet_bar_complet']
-
     ax.set_aspect(0.015)
     ax.barh(0.5, 1, height=6, color=colors['bullet_bkg'], align='center')
     ax.barh(0.5, score,  height=3, color=bar_color, align='center')
-    if dep != '00':
+    if target:
         ax.axvline(target, color='black', ymin=0.15, ymax=0.85)
     ax.set_xlim([0,1])
     ax.set_facecolor(color='lightblue')
@@ -196,20 +196,20 @@ def make_bullet(ax, df, dep, target=None, dose=1):
     ax.text(x=1.05, y=0.5, s=f'{score:.0%}', fontsize=14)
     return ax
 
-
 #%%
 ######################
 # SPARKLINE
 #####################
 
-def make_sparkline(ax, df, metric, plus_good=True):
+def make_sparkline(ax, df, plus_good=True):
+    ''' returns ax '''
     if plus_good:
         color = colors['sparkline']
     else:
         color  = colors['sparkline_neg']
     markers_on = [-1]
-    ax.plot(df.index, df[metric], '-o', color=color, markevery=markers_on)
-    ax.fill_between(df.index, df[metric].min(), df[metric], color=color, 
+    ax.plot(df.index, df, '-o', color=color, markevery=markers_on)
+    ax.fill_between(df.index, df.min(), df, color=color, 
         alpha = 0.2)
     ax.axis('off')
     ax.margins(y=0.6)
@@ -232,7 +232,7 @@ def human_format(num, k=False):
     else:
         return "{}".format('{}'.format(num).rstrip('0').rstrip('.'))
 
-def make_card(ax, df, metric, plus_good=True):
+def make_card(ax, df, plus_good=True):
     '''
     Displays the value of the metric for the last 30 days and the pc change against previous 30 days
     '''
@@ -243,8 +243,8 @@ def make_card(ax, df, metric, plus_good=True):
     else:
         color_inc = colors['value-']
         color_dec = colors['value+']
-    last = df[metric].iloc[-1]
-    minus_1W = df[metric].iloc[-8]
+    last = df.iloc[-1]
+    minus_1W = df.iloc[-8]
     # except:
     #     minus_1W = df.iloc[0]['tot_inj'].iloc[-8]
     if minus_1W != 0:
@@ -293,40 +293,42 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 # Full table
 ###############
 
-def filter_sort_selection(df, dep=None, age=0):
+def filter_sort_selection(df, dep='every', age=0):
     # calcul targets pour couv_dose1, couv_complet retournées dans un df
     #  - dep sélectionné : target niveau France pour chaque clage (différent pour chaque clage)
     #  - age sélectionné : target niveau France pour la clage sélectionnée (même target pour tous les dep)
     last_date = df.index[-1]
     targets = df.loc[last_date, (['couv_dose1', 'couv_complet'], slice(None), '00')].droplevel('dep')
     # Si un dep est sélectionné affiche toutes les classes d'âge pour ce dep (même si une clage a été sélectionnée)
-    if dep:
+    passed_dep = dep
+    if passed_dep != 'every':
         age = slice(None)
         to_drop = 'dep'
+        filtered = df.loc[:, (slice(None), age, dep)].droplevel(to_drop, axis=1)
     # si pas de dep sélectionné, affiche tous les dep pour la clage sélectionnée (0 par défaut)
     else:
         dep = slice(None)
         to_drop = 'clage'
-    filtered = df.loc[:, (slice(None), age, dep)].droplevel(to_drop, axis=1)
+        filtered = df.loc[:, (slice(None), age, slice(None))].droplevel(to_drop, axis=1)
     # tri des départements par couv_complet décroissant avec France en tête et COM à la fin
     # retourne un df avec pour col : 
     #   - level 0 : indicateur
     #   - level 1 : clage
-    if dep:
+    if passed_dep != 'every':
         # tri par défaut des clages
-        sorting = filtered['couv_complet'].columns
+        order = filtered['couv_complet'].columns
     else:
-        # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
+    # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
         COM = ['971', '972', '973', '974', '975', '976', '977', '978']
-        sorting = filtered.loc[last_date, 'couv_complet'].sort_values('couv_complet', ascending=False)
-        sorting = pd.concat(sorting[sorting.index=='00'], sorting[(~sorted.index in COM) & (~sorting.index == '00')], sorting[sorting.index in COM])
-        sorting = sorting.index
-    return {'df': filtered, 'targets': targets, 'sorting': sorting}
+        order = filtered.loc[last_date, 'couv_complet'].sort_values(ascending=False)
+        order = pd.concat([order[order.index=='00'], order[(~order.index.isin(COM)) & (order.index != '00')], order[order.index.isin(COM)]])
+        order  = order.index
+    return {'df': filtered, 'targets': targets, 'sorting': order}
 
-def make_table_header(age=0, dep=None):
+def make_table_header(dep='every', age=0):
     global df_nom_dep, clages, colors, fig_width, n_cols, width_ratios, wspace
-    if dep:
-        selected = df_nom_dep.loc[dep, 'nom_dep']
+    if dep != 'every':
+        selected = df_nom_dep[dep]
     else:
         selected = clages[str(age)]
     header_fig = plt.figure(figsize=(fig_width, 1.3), facecolor=colors['bullet_bar_complet'])
@@ -355,50 +357,60 @@ def make_table_header(age=0, dep=None):
     make_header(header_inc_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
     return header_fig
 
-def make_table(df, age=0, dep=None):
-    df = filter_sort_selection(df, age, dep)
-        
-    target_dose1 = df['couv_dose1'][age].iloc[-1]['00']
-    target_complet = df['couv_complet'][age].iloc[-1]['00']
+def make_table(data, dep='every', age=None):
+    global clages, df_nom_dep
+    df = data['df']
+    targets = data['targets']
+    sorting = data['sorting']
+    if dep != 'every':
+        lookup = clages
+    else:
+        lookup = df_nom_dep
 
     # table format
-    n_dep = len(sorted.index.unique())
-    n_rows =  n_dep
+    n_rows =  len(sorting)
     fig_height = n_rows * 0.8
     
     fig = plt.figure(figsize=(fig_width, fig_height), facecolor=colors['background'])
-
     grid = fig.add_gridspec(n_rows, n_cols, hspace=0.05, wspace=wspace, width_ratios=width_ratios)
     
-    for idx, dep in enumerate(sorted.index):
-        df_dep = df_age.xs((age, dep), level=('clage', 'dep'), axis=1)
-        nom_dep = df_nom_dep.loc[dep, 'nom_dep']
+    for idx, sub in enumerate(sorting):
+        # sub est le dep ou la clage selon ce qui est entré dans la fonction
+        # si un dep est sélectionné, sorting contient les clages qu'on veut afficher
+        # sinon, l'âge est celui qui est en argument de make_table()
+        if dep != 'every':
+            age = sub
+        # col 1 : nom du dep ou de la clage
+        nom = lookup[str(sub)]
         ax_nom_dep = fig.add_subplot(grid[idx, 0])
-        make_header(ax_nom_dep, nom_dep, fontsize=14, halign='right')
+        make_header(ax_nom_dep, nom, fontsize=14, halign='right')
 
+        # col 2 : couv dose 1
         div_dose1 = grid[idx, 1].subgridspec(1, 2, width_ratios=[6,1])
         ax_dose1 = fig.add_subplot(div_dose1[0,0])
-        make_bullet(ax_dose1, df_dep, dep, target_dose1, dose=1)
+        make_bullet(ax_dose1, df.loc[:, ('couv_dose1', sub)], targets.loc['couv_dose1', age])
 
+        # col 3 : couv complet
         div_dose2 = grid[idx, 2].subgridspec(1, 2, width_ratios=[6,1])
         ax_dose2 = fig.add_subplot(div_dose2[0,0])
-        make_bullet(ax_dose2, df_dep, dep, target_complet, dose=2)
+        make_bullet(ax_dose2, df.loc[:, ('couv_complet', sub)], targets.loc['couv_complet', age], dose=2)
 
         ax_spark =  fig.add_subplot(grid[idx, 3])
-        make_sparkline(ax_spark, df_dep, 'ratio')
+        make_sparkline(ax_spark, df.loc[:, ('ratio', sub)])
         
         ax_card = fig.add_subplot(grid[idx, 4])
-        make_card(ax_card, df_dep * 100, 'ratio')
+        make_card(ax_card, df.loc[:, ('ratio', sub)])
 
         ax_spark_inc =  fig.add_subplot(grid[idx, 5])
-        make_sparkline(ax_spark_inc, df_dep, 'inc_S', plus_good=False)
+        make_sparkline(ax_spark_inc, df.loc[:, ('inc', sub)], plus_good=False)
         
         ax_card_inc = fig.add_subplot(grid[idx, 6])
-        make_card(ax_card_inc, df_dep, 'inc_S', plus_good=False)
+        make_card(ax_card_inc, df.loc[:, ('inc', sub)], plus_good=False)
         # plt.subplots_adjust(left=0, right=0.9)
         plt.xticks([])
         plt.yticks([])
-    
-    return fig;
+    return fig    
 
 
+
+# %%
