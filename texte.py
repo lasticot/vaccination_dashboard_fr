@@ -2,7 +2,7 @@ import streamlit as st
 
 def display_desc():
 
-    st.header("Description et interprétation des indicateurs")
+    st.header("Description et interprétation des indicateurs", anchor='desc')
 
     st.markdown(
         '''
@@ -36,7 +36,7 @@ def display_att():
 
         - Malgré toute l'attention que j'ai portée à l'élaboration de ce tableau, des erreurs peuvent être présentes. Tous les indicateurs doivent donc être pris avec une petite dose de scepticisme. Si vous constatez des erreurs ou pour toute autre remarque vous pouvez me contacter sur Twitter [@FranklinMaillot](https://twitter.com/FranklinMaillot). 
 
-        - Plus de détails sur les indicateurs et leur interprétation sous le tableau. 
+        - Plus de détails sur les indicateurs et leur interprétation [sous le tableau](#desc). 
 
         '''
     )
