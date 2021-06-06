@@ -32,7 +32,7 @@ st.markdown(
         unsafe_allow_html=True,
     )
 
-
+displayed = False
 @st.cache
 def load():
     return load_compute_data()
@@ -40,28 +40,31 @@ def load():
 def filter(df, dep='every', age=None):
     return filter_sort_selection(df, dep=dep, age=age)
 
-# def display(df, dep, age):
-#     fig_header = make_table_header(dep=dep, age=age)
-#     fig_table  = make_table(df, dep=dep, age=age)
-#     st.pyplot(fig_header)
-#     # st.pyplot(fig)
-
+def display(df, dep, age):
+    global displayed
+    displayed = True
+    data = filter(df, dep, age)
+    st.pyplot(make_table_header(dep, age))
+    st.pyplot(make_table(data, dep, age))
 
 result = load()
 
 with st.sidebar.form('my form'):
+    st.write("Sélectionner une classe d'âge ou un département")
     clage = st.selectbox("Classe d'âge", list(clages_selected.keys()))
     age = clages_selected[clage]
     dep = st.selectbox("Département", list(dep_selected.index), index=1)
     dep = dep_selected[dep]
     submitted = st.form_submit_button('Submit')
 
-
 if submitted:
-    data = filter(result, dep, age)
-    st.pyplot(make_table_header(dep, age))
-    st.pyplot(make_table(data, dep, age))
+    with st.spinner("Encore un peu de patience. Le tableau va bientôt s'afficher"):
+        display(result,dep, age)
+    first_load = False
 
+if displayed:
+    st.stop()
+display(result, dep, age)
 
 # fig_header, ax = plt.subplots()
 # st.pyplot(make_table_header(dep, age))
