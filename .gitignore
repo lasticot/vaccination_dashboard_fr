@@ -3,3 +3,4 @@ pop_dep_sexe_age.xlsx
 *.ipynb
 .ipynb_checkpoints/
 __pycache__/
+*.csv
