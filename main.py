@@ -1,5 +1,4 @@
 #%%
-import copy
 from numpy.lib.npyio import load
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -53,10 +52,11 @@ def display(df, dep, age):
     global displayed, last_date, table_title
     displayed = True
     data = filter(df, dep, age)
+    st.sidebar.write(f"Dernières données disponibles : {data['last_date']:%d-%b-%Y}")
     if dep == 'every':
         table_title = f'Tous les départements - {clage_str}'
     else:
-        table_title = f"{dep_str} - Toutes les classes d'âge"
+        table_title = f"{dep_str} - 18 ans et plus"
     st.subheader(table_title)
     st.pyplot(make_table_header(dep, age))
     with st.spinner("Le tableau est en train de charger, encore un peu de patience...⏱️"):
@@ -70,7 +70,7 @@ with st.sidebar.form('my form'):
     dep_str = st.selectbox("Département", list(dep_selected.index), index=1)
     dep = dep_selected[dep_str]
     submitted = st.form_submit_button('Afficher')
-st.sidebar.markdown("*Pour «Tous les départements», le délai d'affichage est un plus long, pas d'inquiétude si le tableau n'apparaît pas tout de suite.*")
+st.sidebar.markdown("*Pour «Tous les départements», le délai d'affichage est un peu plus long, pas d'inquiétude si le tableau n'apparaît pas tout de suite.*")
 
 # above table
 with top_container:
