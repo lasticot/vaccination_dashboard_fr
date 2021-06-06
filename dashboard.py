@@ -21,8 +21,8 @@ colors = {
 }
 
 clages = {
-    '0'  : '20 ans et plus',
-    '29' : '20 - 29 ans', 
+    '0'  : '18 ans et plus',
+    '29' : '18 - 29 ans', 
     '39' : '30 - 39 ans',
     '49' : '40 - 49 ans', 
     '59' : '50 - 59 ans', 
@@ -50,9 +50,7 @@ def load_compute_data():
         parse_dates=['jour'], dtype={'dep':str})
     # df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
     #     parse_dates=['jour'], dtype={'dep':str})
-
     df2 = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str})
- #
     # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
     df3 = pd.read_csv('vacc_fr.csv', delimiter=';', 
         parse_dates=['jour'], dtype={'dep':str})
@@ -112,6 +110,9 @@ def load_compute_data():
     vacc['clage'] = vacc.clage.apply(new_age_vacc)
     vacc = vacc.groupby(['dep', 'clage',  'jour'], as_index=False).sum()
 
+    # # extrapolation de la population des 20-29 pour correspondre à la fourchette 18-29 de vacc (*1.2)
+    # test['pop'] = test.apply(lambda x: x['pop'] * 1.2 if x['clage'] == 29 else x['pop'], axis=1)
+
     # suppression clage 0, 9, 19, remplace clages puis groupby
     test = test[test.clage >= 29]
     test['clage'] = test.clage.apply(new_age_test)
@@ -133,10 +134,14 @@ def load_compute_data():
     # !!!!!!!!!!!!!! problème pour la clage 20-29 qui est 18-29 dans le fichier vacc
     vacc['couv_dose1'] = vacc['n_cum_dose1'] / vacc['pop']
     vacc['couv_complet'] = vacc['n_cum_complet'] / vacc['pop']
-    # nb total d'injections, somme mobile 7 derniers jours
+    # nb total d'injections
     vacc['inj'] = vacc['n_dose1'] + vacc['n_complet']
-    # Nb de personnes non vaccinées estimée, somme mobile 7 derniers jours
+    # Nb de personnes non vaccinées estimée
+    vacc['part_vacc'] = vacc['n_cum_dose1'] - vacc['n_cum_complet']
+    # Nb de personnes partiellement vaccinées
     vacc['non_vacc'] = vacc['pop'] - vacc['n_cum_complet']
+    # Nb d'inj à effectuer pour couvrir tout le monde (2 por les non_vacc, 1 pour les part_vacc)
+    vacc['inj_todo'] = vacc['part_vacc'] + vacc['non_vacc'] * 2
     # Colonnes qui servent de placeholder les indicateurs sont calculés après le pivot
     vacc['ratio'] = 0
     vacc['nouveaux'] = 0
@@ -150,11 +155,11 @@ def load_compute_data():
     #   - clage
     #   - dep
     pivot = vacc.pivot(index='jour', columns=['clage', 'dep'], 
-                values=['couv_dose1', 'couv_complet', 'n_dose1', 'n_complet', 'nouveaux', 'pop', 'ratio', 'pos', 'pos_sem', 'inj', 'non_vacc', 'inc_S', 'inc'])
+                values=['couv_dose1', 'couv_complet', 'n_dose1', 'n_complet', 'nouveaux', 'pop', 'ratio', 'pos', 'pos_sem', 'inj', 'inj_todo', 'non_vacc', 'inc_S', 'inc'])
     # Nb d'injections par semaine glissante
     pivot['inj'] = pivot['inj'].rolling(7).sum()
     # Ratio nb d'inj / non_vaccinés 1 semaine auparavant
-    pivot['ratio'] = pivot['inj'].div(pivot['non_vacc'].shift(7)).replace(np.inf, np.nan) * 100
+    pivot['ratio'] = pivot['inj'].div(pivot['inj_todo'].shift(7)).replace(np.inf, np.nan) * 100
     # Ratio du nb d'injections dose1 / inj complet
     pivot['nouveaux'] = pivot['n_dose1'].rolling(7).sum().div(pivot['inj']).replace(np.inf, np.nan)
     # Nombre de nouveaux cas par semaine glissante
@@ -328,7 +333,7 @@ def filter_sort_selection(df, dep='every', age=0):
         order = filtered.loc[last_date, 'couv_complet'].sort_values(ascending=False)
         order = pd.concat([order[order.index=='00'], order[(~order.index.isin(COM)) & (order.index != '00')], order[order.index.isin(COM)]])
         order  = order.index
-    return {'df': filtered, 'targets': targets, 'sorting': order}
+    return {'df': filtered, 'targets': targets, 'sorting': order, 'last_date': last_date}
 
 def make_table_header(dep='every', age=0):
     global df_nom_dep, clages, colors, fig_width, n_cols, width_ratios, wspace
@@ -421,10 +426,10 @@ def make_table(data, dep='every', age=None):
         make_card(ax_card, df.loc[:, ('ratio', sub)])
 
         ax_spark_inc =  fig.add_subplot(grid[idx, 7])
-        make_sparkline(ax_spark_inc, df.loc[:, ('inc', sub)], plus_good=False)
+        make_sparkline(ax_spark_inc, df.loc[:, ('inc_S', sub)], plus_good=False)
         
         ax_card_inc = fig.add_subplot(grid[idx, 8])
-        make_card(ax_card_inc, df.loc[:, ('inc', sub)], plus_good=False)
+        make_card(ax_card_inc, df.loc[:, ('inc_S', sub)], plus_good=False)
         # plt.subplots_adjust(left=0, right=0.9)
         plt.xticks([])
         plt.yticks([])
