@@ -32,8 +32,8 @@ clages = {
 }
 # table format
 n_cols = 7
-fig_width = 18.5
-width_ratios = [2, 5, 5, 2, 1.5, 2, 1.5]
+fig_width = 16
+width_ratios = [5, 9, 9, 5, 4, 5, 4]
 wspace = 0.04
 
 # Lookup des noms de départements
@@ -179,11 +179,11 @@ def make_bullet(ax, df, target=None, dose=1):
     returns ax
     '''
     score = df[-1]
-    if dose == 2:
+    if dose == 1:
         bar_color = colors['bullet_bar_1dose']
     else:
         bar_color = colors['bullet_bar_complet']
-    ax.set_aspect(0.015)
+    ax.set_aspect(0.014)
     ax.barh(0.5, 1, height=6, color=colors['bullet_bkg'], align='center')
     ax.barh(0.5, score,  height=3, color=bar_color, align='center')
     if target:
