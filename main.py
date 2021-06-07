@@ -41,9 +41,7 @@ top_container = st.beta_container()
 table_container = st.beta_container()
 bottom_container = st.beta_container()
 
-@st.cache
-def load():
-    return load_compute_data()
+result = load_compute_data('raw.csv')
 
 def filter(df, dep='every', age=None):
     return filter_sort_selection(df, dep=dep, age=age)
@@ -77,7 +75,7 @@ with top_container:
     st.title("Tableau de bord de suivi de la vaccination contre le Covid-19 en France")
     display_att()
 
-result = load()
+# result = load()
 with table_container:
     if submitted:
         display(result,dep, age)
