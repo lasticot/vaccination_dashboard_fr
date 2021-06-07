@@ -28,6 +28,15 @@ def display_desc():
         La protection conférée par les vaccins étant très bonne, il est raisonnable de supposer que la majorité des cas de Covid concernent des personnes qui ne sont pas encore vaccinées. Cet indicateur permet donc d'évaluer la circulation du virus dans cette population qui pourrait être masquée par l'effet de la vaccination si on considérait toute la population. 
         '''
     )
+def display_changelog():
+    st.header("Dernières modifications et corrections", anchor='changelog')
+
+    st.markdown(
+        '''
+        - 7 juin : correction de l'extrapolation dans le calcul de la couverture vaccinale et l'incidence pour les 18-29 ans.
+        - 7 juin : colonne "...partiellement vaccinée" renommée "...au moins partiellement vaccinée" car cet indicateur prend en compte toutes les personnes ayant reçu au moins une dose. 
+        '''
+    )
 def display_att(): 
     st.header("Points d'attention")
     st.markdown(
@@ -37,6 +46,8 @@ def display_att():
         - Malgré toute l'attention que j'ai portée à l'élaboration de ce tableau, des erreurs peuvent être présentes. Tous les indicateurs doivent donc être pris avec une petite dose de scepticisme. Si vous constatez des erreurs ou pour toute autre remarque vous pouvez me contacter sur Twitter [@FranklinMaillot](https://twitter.com/FranklinMaillot). 
 
         - Plus de détails sur les indicateurs et leur interprétation [sous le tableau](#desc). 
+
+        - Derniers changements et corrections : voir le [changelog](#changelog)
 
         '''
     )

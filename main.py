@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 from dashboard import  load_compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep
-from texte import display_desc, display_att
+from texte import display_changelog, display_desc, display_att
 
 clages_selected = {
     '18 ans et plus': 0,
@@ -91,6 +91,7 @@ with bottom_container:
         '''
     )
     display_desc()
+    display_changelog()
 
 if displayed:
     st.stop()
