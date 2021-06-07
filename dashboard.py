@@ -107,8 +107,8 @@ def load_compute_data():
     vacc['clage'] = vacc.clage.apply(new_age_vacc)
     vacc = vacc.groupby(['dep', 'clage',  'jour'], as_index=False).sum()
 
-    # # extrapolation de la population des 20-29 pour correspondre à la fourchette 18-29 de vacc (*1.2)
-    # test['pop'] = test.apply(lambda x: x['pop'] * 1.2 if x['clage'] == 29 else x['pop'], axis=1)
+    # extrapolation de la population des 20-29 pour correspondre à la fourchette 18-29 de vacc (*1.2)
+    test['pop_18'] = test.apply(lambda x: x['pop'] * 1.2 if x['clage'] == 29 else x['pop'], axis=1)
 
     # suppression clage 0, 9, 19, remplace clages puis groupby
     test = test[test.clage >= 29]
@@ -125,20 +125,21 @@ def load_compute_data():
     test_fr_agg['dep'] = '00'
     test = pd.concat([test, test_fr_agg], ignore_index=True)
 
-    vacc = vacc.merge(test[['dep', 'clage', 'jour', 'pos', 'test', 'pop']], on=['dep', 'clage', 'jour'], suffixes=(None, "_test"))
+    vacc = vacc.merge(test[['dep', 'clage', 'jour', 'pos', 'test', 'pop', 'pop_18']], on=['dep', 'clage', 'jour'], suffixes=(None, "_test"))
     
     # recalcul du % de couverture pour les nouvelles clages en utilisant la pop du fichier test
-    # !!!!!!!!!!!!!! problème pour la clage 20-29 qui est 18-29 dans le fichier vacc
-    vacc['couv_dose1'] = vacc['n_cum_dose1'] / vacc['pop']
-    vacc['couv_complet'] = vacc['n_cum_complet'] / vacc['pop']
+    vacc['couv_dose1'] = vacc['n_cum_dose1'] / vacc['pop_18']
+    vacc['couv_complet'] = vacc['n_cum_complet'] / vacc['pop_18']
     # nb total d'injections
     vacc['inj'] = vacc['n_dose1'] + vacc['n_complet']
-    # Nb de personnes non vaccinées estimée
+    # Nb de personnes partiellement vaccinées estimée
     vacc['part_vacc'] = vacc['n_cum_dose1'] - vacc['n_cum_complet']
-    # Nb de personnes partiellement vaccinées
-    vacc['non_vacc'] = vacc['pop'] - vacc['n_cum_complet']
-    # Nb d'inj à effectuer pour couvrir tout le monde (2 por les non_vacc, 1 pour les part_vacc)
-    vacc['inj_todo'] = vacc['part_vacc'] + vacc['non_vacc'] * 2
+    # Nb de personnes non vaccinées
+    vacc['non_vacc_18'] = vacc['pop_18'] - vacc['n_cum_complet']
+    # Nb d'inj à effectuer pour couvrir tout le monde (2 pour les non_vacc, 1 pour les part_vacc)
+    vacc['inj_todo'] = vacc['part_vacc'] + vacc['non_vacc_18'] * 2
+    # Correction du nb de non_vacc des 18-29 pour correspondre à la pop des 20-29 (pour calcul du tx d'incidence ajusté)
+    vacc['non_vacc_20'] = vacc.apply(lambda x: x['pop'] * (1 - x['couv_dose1']) if x['clage'] == 29 else x['non_vacc_18'], axis=1)
     # Colonnes qui servent de placeholder les indicateurs sont calculés après le pivot
     vacc['ratio'] = 0
     vacc['nouveaux'] = 0
@@ -152,7 +153,7 @@ def load_compute_data():
     #   - clage
     #   - dep
     pivot = vacc.pivot(index='jour', columns=['clage', 'dep'], 
-                values=['couv_dose1', 'couv_complet', 'n_dose1', 'n_complet', 'nouveaux', 'pop', 'ratio', 'pos', 'pos_sem', 'inj', 'inj_todo', 'non_vacc', 'inc_S', 'inc'])
+                values=['couv_dose1', 'couv_complet', 'n_dose1', 'n_complet', 'nouveaux', 'pop', 'pop_18', 'ratio', 'pos', 'pos_sem', 'inj', 'inj_todo', 'non_vacc_18', 'non_vacc_20', 'inc_S', 'inc'])
     # Nb d'injections par semaine glissante
     pivot['inj'] = pivot['inj'].rolling(7).sum()
     # Ratio nb d'inj / non_vaccinés 1 semaine auparavant
@@ -162,7 +163,7 @@ def load_compute_data():
     # Nombre de nouveaux cas par semaine glissante
     pivot['pos_sem'] = pivot['pos'].rolling(7).sum()
     # Taux d'incidence calculée sur la population non vaccinée 1 semaine auparavant
-    pivot['inc_S'] = pivot['pos_sem'].div(pivot['non_vacc'].shift(7)).replace(np.inf, np.nan) * 100_000
+    pivot['inc_S'] = pivot['pos_sem'].div(pivot['non_vacc_20'].shift(7)).replace(np.inf, np.nan) * 100_000
     # Taux d'incidence calculée sur la population totale
     pivot['inc'] = pivot['pos_sem'].div(pivot['pop']).replace(np.inf, np.nan) * 100_000
 
@@ -346,7 +347,7 @@ def make_table_header(dep='every', age=0):
     make_header(header_bullet_top, f"Pourcentage de la population de {selected}...", width=60, fontsize=14, fontcolor=colors['header_font'])
 
     header_bullet_left = header_fig.add_subplot(header_div[1,1])
-    make_header(header_bullet_left, "...partiellement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
+    make_header(header_bullet_left, "...au moins \n partiellement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
     header_bullet_right = header_fig.add_subplot(header_div[1,2])
     make_header(header_bullet_right, "...entièrement vaccinée", fontsize=14, width=30, fontcolor=colors['header_font'])
 
