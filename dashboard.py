@@ -45,31 +45,31 @@ df_nom_dep = df_nom_dep['nom_dep'].copy()
 #######
 # chargement et formattage des data
 #######
-class FileReference:
-    def __init__(self, filename):
-        self.filename = filename
+# class FileReference:
+#     def __init__(self, filename):
+#         self.filename = filename
 
-def hash_file_reference(file_reference):
-    filename = file_reference.filename
-    return (filename, os.path.getmtime(filename))
+# def hash_file_reference(file_reference):
+#     filename = file_reference.filename
+#     return (filename, os.path.getmtime(filename))
 
-@st.cache(hash_funcs={FileReference: hash_file_reference})
-def load_compute_data(file_reference):
+# @st.cache(hash_funcs={FileReference: hash_file_reference})
+def load_compute_data(vacc_file):
     # vaccination
-    df1 = pd.read_csv(file_reference, delimiter=';', 
+    df1 = pd.read_csv(vacc_file, delimiter=';', 
         parse_dates=['jour'], dtype={'dep':str})
     # df1 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111', delimiter=';', 
     #     parse_dates=['jour'], dtype={'dep':str})
     # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
-    df2 = pd.read_csv('vacc_fr.csv', delimiter=';', parse_dates=['jour'], dtype={'dep':str})
-    # df2 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
-    #     parse_dates=['jour'], dtype={'dep':str})
+    # df2 = pd.read_csv('vacc_fr.csv', delimiter=';', parse_dates=['jour'], dtype={'dep':str})
+    df2 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
+        parse_dates=['jour'], dtype={'dep':str})
 
     # données des cas détectés 
-    df3 = pd.read_csv('test.csv', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
-                    header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
-    # df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
+    # df3 = pd.read_csv('test.csv', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
     #                 header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
+    df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
+                    header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
 
     # changement de nom
     vacc = df1.copy()
@@ -310,7 +310,6 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 # Full table
 ###############
 
-@st.cache
 def filter_sort_selection(df, dep='every', age=0):
     # calcul targets pour couv_dose1, couv_complet retournées dans un df
     #  - dep sélectionné : target niveau France pour chaque clage (différent pour chaque clage)
