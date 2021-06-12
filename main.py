@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-from dashboard import  load_compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep
+from dashboard import  load_data, compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep
 from texte import display_changelog, display_desc, display_att
 
 clages_selected = {
@@ -18,9 +18,6 @@ clages_selected = {
     '70 - 79 ans': 79,
     '80 ans et plus' : 80
 }
-
-# fichier des vaccinations par département
-vacc_file = 'raw.csv'
 
 # sélection des départements inclus tous les départements + Tous les départemnts (renvoie 'every)
 dep_selected = pd.concat([pd.Series(index=['Tous les départements'], data='every', dtype=str), pd.Series(index=df_nom_dep.values, data=df_nom_dep.index)])
@@ -45,29 +42,12 @@ top_container = st.beta_container()
 table_container = st.beta_container()
 bottom_container = st.beta_container()
 
-class FileReference:
-    def __init__(self, filename):
-        self.filename = filename
-
-def hash_file_reference(file_reference):
-    with open(file_reference.filename) as f:
-        return f.read()
-
-@st.cache(hash_funcs={FileReference: hash_file_reference})
-def load(file_reference):
-    result = load_compute_data(file_reference)
-    return result
-
-@st.cache
-def filter(df, dep='every', age=None):
-    # global vacc_file
-    # data = load(vacc_file)
-    return filter_sort_selection(df, dep=dep, age=age)
+result = compute_data()
 
 def display(df, dep, age):
     global displayed, table_title
     displayed = True
-    data = filter(df, dep, age)
+    data = filter_sort_selection(df, dep, age)
     st.sidebar.write(f"Dernières données disponibles : {data['last_date']:%d-%b-%Y}")
     if dep == 'every':
         table_title = f'Tous les départements - {clage_str}'
@@ -93,7 +73,7 @@ with top_container:
     st.title("Tableau de bord de suivi de la vaccination contre le Covid-19 en France")
     display_att()
 
-result = load(vacc_file)
+result = compute_data()
 with table_container:
     if submitted:
         display(result,dep, age)
