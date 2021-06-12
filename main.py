@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-from dashboard import  load_compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep
+from dashboard import  load_compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep, vacc_file
 from texte import display_changelog, display_desc, display_att
 
 clages_selected = {
@@ -45,29 +45,15 @@ top_container = st.beta_container()
 table_container = st.beta_container()
 bottom_container = st.beta_container()
 
-class FileReference:
-    def __init__(self, filename):
-        self.filename = filename
+result = load_compute_data(vacc_file)
 
-def hash_file_reference(file_reference):
-    with open(file_reference.filename) as f:
-        return f.read()
+# def filter(df, dep='every', age=None):
+#     return filter_sort_selection(df, dep=dep, age=age)
 
-@st.cache(hash_funcs={FileReference: hash_file_reference})
-def load(file_reference):
-    result = load_compute_data(file_reference)
-    return result
-
-@st.cache
-def filter(df, dep='every', age=None):
-    # global vacc_file
-    # data = load(vacc_file)
-    return filter_sort_selection(df, dep=dep, age=age)
-
-def display(df, dep, age):
-    global displayed, table_title
+def display_table(df, dep, age):
+    global displayed, last_date, table_title
     displayed = True
-    data = filter(df, dep, age)
+    data = filter_sort_selection(df, dep, age)
     st.sidebar.write(f"Dernières données disponibles : {data['last_date']:%d-%b-%Y}")
     if dep == 'every':
         table_title = f'Tous les départements - {clage_str}'
@@ -96,7 +82,8 @@ with top_container:
 result = load(vacc_file)
 with table_container:
     if submitted:
-        display(result,dep, age)
+        filtered = filter_sort_selection(result, dep=dep, age=age)
+        display_table(filtered,dep, age)
         first_load = False
 
 with bottom_container:
@@ -112,4 +99,4 @@ with bottom_container:
 if displayed:
     st.stop()
 with table_container:
-    display(result, dep, age)
+    display_table(result, dep, age)
