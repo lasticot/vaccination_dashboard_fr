@@ -1,8 +1,8 @@
 #%%
 import os
-from collections import OrderedDict
 from datetime import datetime, timedelta
 from os import rename
+import requests
 import textwrap
 import numpy as np
 import pandas as pd
@@ -39,12 +39,12 @@ width_ratios = [5, 9, 9, 5, 4, 5, 4, 5, 4]
 wspace = 0.04
 
 # data files
-# url_vacc = 'https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111'
-# url_vacc_fr = 'https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd'
-# url_test = 'https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675'
-url_vacc = 'raw.csv'
-url_vacc_fr = 'vacc_fr.csv'
-url_test = 'test.csv'
+url_vacc = 'https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111'
+url_vacc_fr = 'https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd'
+url_test = 'https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675'
+# url_vacc = 'raw.csv'
+# url_vacc_fr = 'vacc_fr.csv'
+# url_test = 'test.csv'
 
 # Lookup des noms de départements
 df_nom_dep = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str}, usecols=['dep', 'nom_dep']).set_index('dep')
@@ -53,16 +53,15 @@ df_nom_dep = df_nom_dep['nom_dep'].copy()
 #######
 # chargement et formattage des data
 #######
-# class FileReference:
-#     def __init__(self, filename):
-#         self.filename = filename
+class FileReference:
+    def __init__(self, url):
+        self.url = url
 
-# def hash_file_reference(url_vacc):
-#     with open(url_vacc.filename) as f:
-#         return f.read()
+def hash_file_reference(url_vacc):
+    r = requests.get(url_vacc)
+    return r.headers['Date']
 
-# @st.cache(hash_funcs={FileReference: hash_file_reference})
-# @st.cache
+@st.cache(hash_funcs={FileReference: hash_file_reference})
 def load_data():
     global url_vacc, url_vacc_fr, url_test
     print("cache miss!")
@@ -76,9 +75,10 @@ def load_data():
     return df1, df2, df3
                    
 
-# @st.cache
+@st.cache
 def compute_data():
     ''' Concatenate, pivot and compute indicators '''
+    global url_vacc
     vacc, france, test = load_data()
 
     # on supprime les dep '00' '970' et '750' (??) du fichier départemental et 98 qui n'est pas dans fichier test
@@ -122,7 +122,7 @@ def compute_data():
     vacc = vacc.groupby(['dep', 'clage',  'jour'], as_index=False).sum()
 
     # extrapolation de la population des 20-29 pour correspondre à la fourchette 18-29 de vacc (*1.2)
-    test['pop_18'] = test.apply(lambda x: x['pop'] * 1.2 if x['clage'] == 29 else x['pop'], axis=1).copy()
+    test.loc[:, 'pop_18'] = test.apply(lambda x: x['pop'] * 1.2 if x['clage'] == 29 else x['pop'], axis=1)
 
     # suppression clage 0, 9, 19, remplace clages puis groupby
     test = test[test.clage >= 29]
