@@ -5,7 +5,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
+<<<<<<< HEAD
 from dashboard import  load_compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep, vacc_file
+=======
+from dashboard import  load_data, compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep
+>>>>>>> cache_test
 from texte import display_changelog, display_desc, display_att
 
 clages_selected = {
@@ -18,9 +22,6 @@ clages_selected = {
     '70 - 79 ans': 79,
     '80 ans et plus' : 80
 }
-
-# fichier des vaccinations par département
-vacc_file = 'raw.csv'
 
 # sélection des départements inclus tous les départements + Tous les départemnts (renvoie 'every)
 dep_selected = pd.concat([pd.Series(index=['Tous les départements'], data='every', dtype=str), pd.Series(index=df_nom_dep.values, data=df_nom_dep.index)])
@@ -45,13 +46,10 @@ top_container = st.beta_container()
 table_container = st.beta_container()
 bottom_container = st.beta_container()
 
-result = load_compute_data(vacc_file)
+result = compute_data()
 
-# def filter(df, dep='every', age=None):
-#     return filter_sort_selection(df, dep=dep, age=age)
-
-def display_table(df, dep, age):
-    global displayed, last_date, table_title
+def display(df, dep, age):
+    global displayed, table_title
     displayed = True
     data = filter_sort_selection(df, dep, age)
     st.sidebar.write(f"Dernières données disponibles : {data['last_date']:%d-%b-%Y}")
@@ -79,7 +77,7 @@ with top_container:
     st.title("Tableau de bord de suivi de la vaccination contre le Covid-19 en France")
     display_att()
 
-result = load(vacc_file)
+result = compute_data()
 with table_container:
     if submitted:
         filtered = filter_sort_selection(result, dep=dep, age=age)

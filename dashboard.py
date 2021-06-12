@@ -1,8 +1,8 @@
 #%%
 import os
-from collections import OrderedDict
 from datetime import datetime, timedelta
 from os import rename
+import requests
 import textwrap
 import numpy as np
 import pandas as pd
@@ -38,6 +38,14 @@ fig_width = 19
 width_ratios = [5, 9, 9, 5, 4, 5, 4, 5, 4]
 wspace = 0.04
 
+# data files
+url_vacc = 'https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111'
+url_vacc_fr = 'https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd'
+url_test = 'https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675'
+# url_vacc = 'raw.csv'
+# url_vacc_fr = 'vacc_fr.csv'
+# url_test = 'test.csv'
+
 # Lookup des noms de départements
 df_nom_dep = pd.read_excel('nom_dep.xlsx', engine='openpyxl', dtype={'dep':str}, usecols=['dep', 'nom_dep']).set_index('dep')
 df_nom_dep = df_nom_dep['nom_dep'].copy()
@@ -48,6 +56,7 @@ vacc_file = 'https://www.data.gouv.fr/fr/datasets/r/4f39ec91-80d7-4602-befb-4b52
 #######
 # chargement et formattage des data
 #######
+<<<<<<< HEAD
 # class FileReference:
 #     def __init__(self, filename):
 #         self.filename = filename
@@ -72,21 +81,35 @@ def load_compute_data(vacc_file):
     #     parse_dates=['jour'], dtype={'dep':str})
     df1 = pd.read_csv(vacc_file, delimiter=';', 
         parse_dates=['jour'], dtype={'dep':str})
+=======
+class FileReference:
+    def __init__(self, url):
+        self.url = url
+
+def hash_file_reference(url_vacc):
+    r = requests.get(url_vacc)
+    return r.headers['Date']
+
+@st.cache(hash_funcs={FileReference: hash_file_reference})
+def load_data():
+    global url_vacc, url_vacc_fr, url_test
+    print("cache miss!")
+    # vaccination
+    df1 = pd.read_csv(url_vacc, delimiter=';', parse_dates=['jour'], dtype={'dep':str})
+>>>>>>> cache_test
     # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
-    # df2 = pd.read_csv('vacc_fr.csv', delimiter=';', parse_dates=['jour'], dtype={'dep':str})
-    df2 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/54dd5f8d-1e2e-4ccb-8fb8-eac68245befd', delimiter=';', 
-        parse_dates=['jour'], dtype={'dep':str})
-
+    df2 = pd.read_csv(url_vacc_fr, delimiter=';', parse_dates=['jour'], dtype={'dep':str})
     # données des cas détectés 
-    # df3 = pd.read_csv('test.csv', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
-    #                 header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
-    df3 = pd.read_csv('https://www.data.gouv.fr/fr/datasets/r/406c6a23-e283-4300-9484-54e78c8ae675', sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
+    df3 = pd.read_csv(url_test, sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
                     header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
+    return df1, df2, df3
+                   
 
-    # changement de nom
-    vacc = df1.copy()
-    france = df2.copy()
-    test = df3.copy()
+@st.cache
+def compute_data():
+    ''' Concatenate, pivot and compute indicators '''
+    global url_vacc
+    vacc, france, test = load_data()
 
     # on supprime les dep '00' '970' et '750' (??) du fichier départemental et 98 qui n'est pas dans fichier test
     # (les dep '00' qui sont censés contenir l'agg au niveau France sont vides donc remplcées par le fichier fra)
@@ -129,7 +152,7 @@ def load_compute_data(vacc_file):
     vacc = vacc.groupby(['dep', 'clage',  'jour'], as_index=False).sum()
 
     # extrapolation de la population des 20-29 pour correspondre à la fourchette 18-29 de vacc (*1.2)
-    test['pop_18'] = test.apply(lambda x: x['pop'] * 1.2 if x['clage'] == 29 else x['pop'], axis=1)
+    test.loc[:, 'pop_18'] = test.apply(lambda x: x['pop'] * 1.2 if x['clage'] == 29 else x['pop'], axis=1)
 
     # suppression clage 0, 9, 19, remplace clages puis groupby
     test = test[test.clage >= 29]
@@ -330,7 +353,7 @@ def filter_sort_selection(df, dep='every', age=0):
     # calcul targets pour couv_dose1, couv_complet retournées dans un df
     #  - dep sélectionné : target niveau France pour chaque clage (différent pour chaque clage)
     #  - age sélectionné : target niveau France pour la clage sélectionnée (même target pour tous les dep)
-    last_date = df.index[-1]
+    last_date = max(df.index)
     targets = df.loc[last_date, (['couv_dose1', 'couv_complet'], slice(None), '00')].droplevel('dep')
     # Si un dep est sélectionné affiche toutes les classes d'âge pour ce dep (même si une clage a été sélectionnée)
     passed_dep = dep
