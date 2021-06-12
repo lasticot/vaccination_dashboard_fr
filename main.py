@@ -5,11 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-<<<<<<< HEAD
-from dashboard import  load_compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep, vacc_file
-=======
 from dashboard import  load_data, compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep
->>>>>>> cache_test
 from texte import display_changelog, display_desc, display_att
 
 clages_selected = {
@@ -49,9 +45,9 @@ bottom_container = st.beta_container()
 result = compute_data()
 
 def display(df, dep, age):
-    global displayed, table_title
+    global displayed, table_title, result
     displayed = True
-    data = filter_sort_selection(df, dep, age)
+    data = filter_sort_selection(result, dep, age)
     st.sidebar.write(f"Dernières données disponibles : {data['last_date']:%d-%b-%Y}")
     if dep == 'every':
         table_title = f'Tous les départements - {clage_str}'
@@ -81,7 +77,7 @@ result = compute_data()
 with table_container:
     if submitted:
         filtered = filter_sort_selection(result, dep=dep, age=age)
-        display_table(filtered,dep, age)
+        display(filtered,dep, age)
         first_load = False
 
 with bottom_container:
@@ -97,4 +93,4 @@ with bottom_container:
 if displayed:
     st.stop()
 with table_container:
-    display_table(result, dep, age)
+    display(result, dep, age)
