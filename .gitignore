@@ -4,3 +4,6 @@ pop_dep_sexe_age.xlsx
 .ipynb_checkpoints/
 __pycache__/
 *.csv
+plotly_animation.py
+animation.html
+
