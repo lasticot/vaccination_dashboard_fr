@@ -1,5 +1,5 @@
 #%%
-import os
+import copy
 from numpy.lib.npyio import load
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -18,6 +18,8 @@ clages_selected = {
     '70 - 79 ans': 79,
     '80 ans et plus' : 80
 }
+
+url_vacc = 'https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111'
 
 # sélection des départements inclus tous les départements + Tous les départemnts (renvoie 'every)
 dep_selected = pd.concat([pd.Series(index=['Tous les départements'], data='every', dtype=str), pd.Series(index=df_nom_dep.values, data=df_nom_dep.index)])
@@ -42,7 +44,9 @@ top_container = st.beta_container()
 table_container = st.beta_container()
 bottom_container = st.beta_container()
 
-result = compute_data()
+data = copy.deepcopy(load_data(url_vacc))
+result = compute_data(data[0], data[1], data[2])
+
 
 def display(df, dep, age):
     global displayed, table_title, result
@@ -73,7 +77,6 @@ with top_container:
     st.title("Tableau de bord de suivi de la vaccination contre le Covid-19 en France")
     display_att()
 
-result = compute_data()
 with table_container:
     if submitted:
         filtered = filter_sort_selection(result, dep=dep, age=age)

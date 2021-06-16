@@ -1,7 +1,7 @@
 #%%
 import os
 from datetime import datetime, timedelta
-from os import rename
+# from os import rename
 import requests
 import textwrap
 import numpy as np
@@ -57,14 +57,13 @@ class FileReference:
     def __init__(self, url):
         self.url = url
 
-def hash_file_reference(url_vacc):
-    r = requests.get(url_vacc)
+def hash_file_reference(url):
+    r = requests.get(url)
     return r.headers['Date']
 
 @st.cache(hash_funcs={FileReference: hash_file_reference})
-def load_data():
-    global url_vacc, url_vacc_fr, url_test
-    print("cache miss!")
+def load_data(url_vacc):
+    global url_vacc_fr, url_test
     # vaccination
     df1 = pd.read_csv(url_vacc, delimiter=';', parse_dates=['jour'], dtype={'dep':str})
     # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
@@ -76,10 +75,10 @@ def load_data():
                    
 
 @st.cache
-def compute_data():
+def compute_data(vacc, france, test):
     ''' Concatenate, pivot and compute indicators '''
-    global url_vacc
-    vacc, france, test = load_data()
+    # global url_vacc
+    # vacc, france, test = load_data(url_vacc)
 
     # on supprime les dep '00' '970' et '750' (??) du fichier départemental et 98 qui n'est pas dans fichier test
     # (les dep '00' qui sont censés contenir l'agg au niveau France sont vides donc remplcées par le fichier fra)
@@ -91,10 +90,10 @@ def compute_data():
     vacc = pd.concat([vacc, france], ignore_index=True)
 
     # on garde les 37 derniers jours
-    last_date = min(max(vacc.jour), max(test.jour))
-    first_date = last_date - timedelta(days=37)
-    vacc = vacc[(first_date <= vacc.jour) & (vacc.jour <= last_date)]
-    test = test[(first_date <= test.jour) & (test.jour <= last_date)]
+    # last_date = min(max(vacc.jour), max(test.jour))
+    # first_date = last_date - timedelta(days=37)
+    # vacc = vacc[(first_date <= vacc.jour) & (vacc.jour <= last_date)]
+    # test = test[(first_date <= test.jour) & (test.jour <= last_date)]
 
     # harmonisation des classes d'âges
     # - fichier vaccin commence à 18 ans, fichier incidence commence à 19 ans
@@ -186,7 +185,8 @@ def compute_data():
     # # Remplacer nom_dep NaN par 'France'
     # vacc['nom_dep'].replace(np.nan, 'France', inplace=True)
 
-    return pivot.tail(30)
+    return pivot
+    # return pivot.tail(30)
 
 #%%
 ################
@@ -315,8 +315,11 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 # Full table
 ###############
 
-st.cache
+# st.cache
 def filter_sort_selection(df, dep='every', age=0):
+
+    # Garder que les 30 derniers jours (compute_data() renvoie tout le df)
+    df = df.tail(30).copy()
     # calcul targets pour couv_dose1, couv_complet retournées dans un df
     #  - dep sélectionné : target niveau France pour chaque clage (différent pour chaque clage)
     #  - age sélectionné : target niveau France pour la clage sélectionnée (même target pour tous les dep)
