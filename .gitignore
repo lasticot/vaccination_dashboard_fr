@@ -6,4 +6,5 @@ __pycache__/
 *.csv
 plotly_animation.py
 animation.html
+*.png
 
