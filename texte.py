@@ -18,7 +18,7 @@ def display_desc():
         Cet indicateur permet d'évaluer la dynamique de la campagne de vaccination. Un pourcentage élevé indique un recrutement important de nouveaux candidats à la vaccination parmi la population. 
         Attention cependant, car ce chiffre diminue naturellement au fur et à mesure que le taux de couverture dans la classe d'âge progresse. D'autre part, il diminue quand le nombre de personnes qui n'ont besoin que d'une seule dose augmente. 
 
-        **Nombre d'injections pour 100 personnes non vaccinées, 7 jours glissants** : rapport du nombre total d'injections effectuées dans les 7 derniers jours sur le nombre d'injections qu'il restait à effectuer au début de la période pour couvrir toute la population.
+        **Injections réalisées en pourcentage des injections restantes, 7 jours glissants** : rapport du nombre total d'injections effectuées dans les 7 derniers jours sur le nombre d'injections qu'il restait à effectuer au début de la période pour couvrir toute la population.
 
         On suppose qu'il reste à faire deux injections pour chaque personne non vaccinée et une injection pour les personnes partiellement vaccinées. Cet indicateur permet d'évaluer le délai au bout duquel toute la population sera protégée. Par exemple, une valeur de 5 indique que si les vaccinations se poursuivent au même rythme, il faudra encore environ 20 semaines pour vacciner toute la population. 
         Cette estimation est biaisée par la proportion de personnes qui n'ont besoin que d'une injection. 

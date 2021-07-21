@@ -170,7 +170,7 @@ def compute_data(vacc, france, test):
     # Nb d'injections par semaine glissante
     pivot['inj'] = pivot['inj'].rolling(7).sum()
     # Ratio nb d'inj / non_vaccinés 1 semaine auparavant
-    pivot['ratio'] = pivot['inj'].div(pivot['inj_todo'].shift(7)).replace(np.inf, np.nan) * 100
+    pivot['ratio'] = pivot['inj'].div(pivot['inj_todo'].shift(7)).replace(np.inf, np.nan) 
     # Ratio du nb d'injections dose1 / inj complet
     pivot['nouveaux'] = pivot['n_dose1'].rolling(7).sum().div(pivot['inj']).replace(np.inf, np.nan)
     # Nombre de nouveaux cas par semaine glissante
@@ -439,7 +439,7 @@ def make_table(data, dep='every', age=None):
         make_sparkline(ax_spark, df.loc[:, ('ratio', sub)])
         
         ax_card = fig.add_subplot(grid[idx, 6])
-        make_card(ax_card, df.loc[:, ('ratio', sub)])
+        make_card(ax_card, df.loc[:, ('ratio', sub)], pourcentage=True)
 
         ax_spark_inc =  fig.add_subplot(grid[idx, 7])
         make_sparkline(ax_spark_inc, df.loc[:, ('inc_S', sub)], plus_good=False)
