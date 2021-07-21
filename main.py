@@ -19,6 +19,13 @@ clages_selected = {
     '80 ans et plus' : 80
 }
 
+indicateurs = {
+    '% de couverture complète' : 'couv_complet', 
+    '% de primo-vaccinations': 'nouveaux', 
+    "% d'injections effectuées" : 'ratio', 
+    "Incidence parmi les non vaccinés" : 'inc_S'
+}
+
 url_vacc = 'https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111'
 
 # sélection des départements inclus tous les départements + Tous les départemnts (renvoie 'every)
@@ -51,7 +58,7 @@ result = compute_data(data[0], data[1], data[2])
 def display(df, dep, age):
     global displayed, table_title, result
     displayed = True
-    data = filter_sort_selection(result, dep, age)
+    data = filter_sort_selection(result, dep, age, sorting=indicateurs[sort_by])
     st.sidebar.write(f"Dernières données disponibles : {data['last_date']:%d-%b-%Y}")
     if dep == 'every':
         table_title = f'Tous les départements - {clage_str}'
@@ -69,6 +76,7 @@ with st.sidebar.form('my form'):
     age = clages_selected[clage_str]
     dep_str = st.selectbox("Département", list(dep_selected.index), index=1)
     dep = dep_selected[dep_str]
+    sort_by = st.selectbox("Classer les départements par", list(indicateurs.keys()))
     submitted = st.form_submit_button('Afficher')
 st.sidebar.markdown("*Pour «Tous les départements», le délai d'affichage est un peu plus long, pas d'inquiétude si le tableau n'apparaît pas tout de suite.*")
 

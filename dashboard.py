@@ -53,15 +53,15 @@ df_nom_dep = df_nom_dep['nom_dep'].copy()
 #######
 # chargement et formattage des data
 #######
-class FileReference:
-    def __init__(self, url):
-        self.url = url
+# class FileReference:
+    # def __init__(self, url):
+        # self.url = url
 
-def hash_file_reference(url):
-    r = requests.get(url)
-    return r.headers['Date']
+# def hash_file_reference(url):
+    # r = requests.get(url)
+    # return r.headers['Date']
 
-@st.cache(hash_funcs={FileReference: hash_file_reference})
+# @st.cache(hash_funcs={FileReference: hash_file_reference})
 def load_data(url_vacc):
     global url_vacc_fr, url_test
     # vaccination
@@ -74,7 +74,7 @@ def load_data(url_vacc):
     return df1, df2, df3
                    
 
-@st.cache
+# @st.cache
 def compute_data(vacc, france, test):
     ''' Concatenate, pivot and compute indicators '''
     # global url_vacc
@@ -316,7 +316,7 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 ###############
 
 # st.cache
-def filter_sort_selection(df, dep='every', age=0):
+def filter_sort_selection(df, dep='every', age=0, sorting='couv_complet'):
 
     # Garder que les 30 derniers jours (compute_data() renvoie tout le df)
     df = df.tail(30).copy()
@@ -346,7 +346,7 @@ def filter_sort_selection(df, dep='every', age=0):
     else:
     # départements triés par % de couverture complète décroissant avec France en tête et COM à la fin
         COM = ['971', '972', '973', '974', '975', '976', '977', '978']
-        order = filtered.loc[last_date, 'couv_complet'].sort_values(ascending=False)
+        order = filtered.loc[last_date, sorting].sort_values(ascending=False)
         order = pd.concat([order[order.index=='00'], order[(~order.index.isin(COM)) & (order.index != '00')], order[order.index.isin(COM)]])
         order  = order.index
     return {'df': filtered, 'targets': targets, 'sorting': order, 'last_date': last_date}
