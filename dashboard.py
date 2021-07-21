@@ -377,7 +377,7 @@ def make_table_header(dep='every', age=0):
     make_header(header_sparkline_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
 
     header_sparkline_top = header_fig.add_subplot(header_div[0,5:7])
-    make_header(header_sparkline_top, "Nb d'inj. pour 100 pers. non vaccinées 7 jrs glissants", fontsize=12, width=26, fontcolor=colors['header_font'])
+    make_header(header_sparkline_top, "Inj. réalisées en % des inj restantes 7 jrs glissants", fontsize=12, width=26, fontcolor=colors['header_font'])
     header_sparkline_left = header_fig.add_subplot(header_div[1,5])
     make_header(header_sparkline_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
     header_sparkline_right = header_fig.add_subplot(header_div[1,6])
