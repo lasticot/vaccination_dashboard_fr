@@ -51,10 +51,11 @@ top_container = st.beta_container()
 table_container = st.beta_container()
 bottom_container = st.beta_container()
 
-data = copy.deepcopy(load_data(url_vacc))
+data = copy.deepcopy(load_data())
 result = compute_data(data[0], data[1], data[2])
 
 
+st.cache
 def display(df, dep, age):
     global displayed, table_title, result
     displayed = True

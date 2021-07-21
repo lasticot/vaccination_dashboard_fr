@@ -57,13 +57,17 @@ df_nom_dep = df_nom_dep['nom_dep'].copy()
     # def __init__(self, url):
         # self.url = url
 
-# def hash_file_reference(url):
-    # r = requests.get(url)
-    # return r.headers['Date']
+def hash_file_date(url):
+    r = requests.get(url)
+    return r.headers['Date']
 
-# @st.cache(hash_funcs={FileReference: hash_file_reference})
-def load_data(url_vacc):
-    global url_vacc_fr, url_test
+last_update = hash_file_date(url_vacc)
+
+@st.cache
+def load_data():
+    global url_vacc, url_vacc_fr, url_test, last_update
+    # last_update is used to triger a cache miss when file url_vacc is updated
+    date_check = last_update
     # vaccination
     df1 = pd.read_csv(url_vacc, delimiter=';', parse_dates=['jour'], dtype={'dep':str})
     # les données pour la France (dep '00') sont vides dans le fichier par département (!!??), je remplace donc par les données du fichier France
@@ -71,10 +75,10 @@ def load_data(url_vacc):
     # données des cas détectés 
     df3 = pd.read_csv(url_test, sep=';', dtype={'dep':str}, infer_datetime_format=True, parse_dates=['jour'], 
                     header=0, names=['dep', 'jour', 'pos', 'test', 'clage', 'pop'])
-    return df1, df2, df3
+    return df1, df2, df3, date_check
                    
 
-# @st.cache
+@st.cache
 def compute_data(vacc, france, test):
     ''' Concatenate, pivot and compute indicators '''
     # global url_vacc
@@ -315,7 +319,7 @@ def make_header(ax, text, halign='center', width=15, fontsize=16, fontcolor='bla
 # Full table
 ###############
 
-# st.cache
+st.cache
 def filter_sort_selection(df, dep='every', age=0, sorting='couv_complet'):
 
     # Garder que les 30 derniers jours (compute_data() renvoie tout le df)
@@ -351,6 +355,7 @@ def filter_sort_selection(df, dep='every', age=0, sorting='couv_complet'):
         order  = order.index
     return {'df': filtered, 'targets': targets, 'sorting': order, 'last_date': last_date}
 
+st.cache
 def make_table_header(dep='every', age=0):
     global df_nom_dep, clages, colors, fig_width, n_cols, width_ratios, wspace
     if dep != 'every':
@@ -391,6 +396,7 @@ def make_table_header(dep='every', age=0):
     make_header(header_inc_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
     return header_fig
 
+st.cache
 def make_table(data, dep='every', age=None):
     global clages, df_nom_dep
     df = data['df']
