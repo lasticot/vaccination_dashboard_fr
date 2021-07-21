@@ -35,6 +35,7 @@ def display_changelog():
         '''
         - 7 juin : correction de l'extrapolation dans le calcul de la couverture vaccinale et l'incidence pour les 18-29 ans.
         - 7 juin : colonne "...partiellement vaccinée" renommée "...au moins partiellement vaccinée" car cet indicateur prend en compte toutes les personnes ayant reçu au moins une dose. 
+        - 21 juillet : ajout de l'option de tri des départements. 
         '''
     )
 def display_att(): 
