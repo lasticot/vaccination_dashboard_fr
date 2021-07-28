@@ -389,7 +389,7 @@ def make_table_header(dep='every', age=0):
     make_header(header_sparkline_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
 
     header_inc_top = header_fig.add_subplot(header_div[0,7:])
-    make_header(header_inc_top, "Incidence parmi les pers non vaccinées moy. glissante 7 jrs", fontsize=12, width=26, fontcolor=colors['header_font'])
+    make_header(header_inc_top, "Incidence rapportée aux pers non vaccinées moy. glissante 7 jrs", fontsize=12, width=26, fontcolor=colors['header_font'])
     header_inc_left = header_fig.add_subplot(header_div[1,7])
     make_header(header_inc_left, "30 derniers jrs", fontsize=11, fontcolor=colors['header_font'])
     header_inc_right = header_fig.add_subplot(header_div[1,8])
