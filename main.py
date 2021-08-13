@@ -1,5 +1,6 @@
 #%%
 import copy
+import requests
 from numpy.lib.npyio import load
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -28,6 +29,9 @@ indicateurs = {
 
 url_vacc = 'https://www.data.gouv.fr/fr/datasets/r/83cbbdb9-23cb-455e-8231-69fc25d58111'
 
+r = requests.get(url_vacc)
+last_update = r.headers['Last-Modified']
+
 # sélection des départements inclus tous les départements + Tous les départemnts (renvoie 'every)
 dep_selected = pd.concat([pd.Series(index=['Tous les départements'], data='every', dtype=str), pd.Series(index=df_nom_dep.values, data=df_nom_dep.index)])
 #%%
@@ -51,11 +55,10 @@ top_container = st.beta_container()
 table_container = st.beta_container()
 bottom_container = st.beta_container()
 
-data = copy.deepcopy(load_data())
+data = copy.deepcopy(load_data(url_vacc, last_update))
 result = compute_data(data[0], data[1], data[2])
 
 
-st.cache
 def display(df, dep, age):
     global displayed, table_title, result
     displayed = True
