@@ -7,4 +7,7 @@ __pycache__/
 plotly_animation.py
 animation.html
 *.png
+nom_dep_old.xlsx
+reg.xlsx
+test_email.py
 
