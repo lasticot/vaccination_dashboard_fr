@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-from dashboard import  load_data, compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep
+from dashboard import  load_data, compute_data, filter_sort_selection, make_table_header, make_table, df_nom_dep, clages
 from texte import display_changelog, display_desc, display_att
 
 clages_selected = {
@@ -34,6 +34,7 @@ last_update = r.headers['Last-Modified']
 
 # sélection des départements inclus tous les départements + Tous les départemnts (renvoie 'every)
 dep_selected = pd.concat([pd.Series(index=['Tous les départements'], data='every', dtype=str), pd.Series(index=df_nom_dep.values, data=df_nom_dep.index)])
+
 #%%
 st.set_page_config(page_title="Tableau de bord vaccination", page_icon="📈")
 
@@ -64,14 +65,18 @@ def display(df, dep, age):
     displayed = True
     data = filter_sort_selection(result, dep, age, sorting=indicateurs[sort_by])
     st.sidebar.write(f"Dernières données disponibles : {data['last_date']:%d-%b-%Y}")
+    # if 'tous les départements' selected, find dep names in df_nom_dep
     if dep == 'every':
+        lookup_table = df_nom_dep
         table_title = f'Tous les départements - {clage_str}'
+    # else find classes d'âge in clages
     else:
+        lookup_table = clages
         table_title = f"{dep_str} - 18 ans et plus"
     st.subheader(table_title)
     st.pyplot(make_table_header(dep, age))
     with st.spinner("Le tableau est en train de charger, encore un peu de patience...⏱️"):
-        st.pyplot(make_table(data, dep, age))
+        st.pyplot(make_table(data, dep, age, lookup_table))
 
 # sidebar
 with st.sidebar.form('my form'):

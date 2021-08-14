@@ -54,9 +54,8 @@ df_nom_dep = df_nom_dep['nom_dep'].copy()
 # chargement et formattage des data
 #######
 
-@st.cache(suppress_st_warning=True)
+@st.cache(max_entries=10)
 def load_data(url_vacc, date):
-    st.write("NOTHING IN CACHE FOR url_vacc/{date}")
     global url_vacc_fr, url_test
     # last_update is used to triger a cache miss when file url_vacc is updated
     # vaccination
@@ -69,7 +68,7 @@ def load_data(url_vacc, date):
     return df1, df2, df3, date
                    
 
-@st.cache
+@st.cache(max_entries=10)
 def compute_data(vacc, france, test):
     ''' Concatenate, pivot and compute indicators '''
     # global url_vacc
@@ -120,7 +119,7 @@ def compute_data(vacc, france, test):
 
     # suppression clage 0, 9, 19, remplace clages puis groupby
     test = test[test.clage >= 29]
-    test['clage'] = test.clage.apply(new_age_test)
+    test.loc['clage'] = test.clage.apply(new_age_test)
     test = test.groupby(['dep', 'clage', 'jour'], as_index=False).sum()
 
     # dans test ajouter une classe d'âge 0 aggrégeant toutes les clages
@@ -346,6 +345,7 @@ def filter_sort_selection(df, dep='every', age=0, sorting='couv_complet'):
         order  = order.index
     return {'df': filtered, 'targets': targets, 'sorting': order, 'last_date': last_date}
 
+@st.cache(hash_funcs={plt.Figure: hash})
 def make_table_header(dep='every', age=0):
     global df_nom_dep, clages, colors, fig_width, n_cols, width_ratios, wspace
     if dep != 'every':
@@ -386,15 +386,16 @@ def make_table_header(dep='every', age=0):
     make_header(header_inc_right, "7 dern. jrs \n (% p.r 7 jrs préc.)", fontsize=11, width = 13, fontcolor=colors['header_font'])
     return header_fig
 
-def make_table(data, dep='every', age=None):
+import matplotlib
+def hash_spines(spines : matplotlib.spines.Spine):
+    return [s.get_path for s in spines]
+
+@st.cache(hash_funcs={plt.Figure: hash})
+def make_table(data, dep='every', age=None, lookup_table=clages):
     global clages, df_nom_dep
     df = data['df']
     targets = data['targets']
     sorting = data['sorting']
-    if dep != 'every':
-        lookup = clages
-    else:
-        lookup = df_nom_dep
 
     # table format
     n_rows =  len(sorting)
@@ -410,7 +411,7 @@ def make_table(data, dep='every', age=None):
         if dep != 'every':
             age = sub
         # col 1 : nom du dep ou de la clage
-        nom = lookup[str(sub)]
+        nom = lookup_table[str(sub)]
         ax_nom_dep = fig.add_subplot(grid[idx, 0])
         make_header(ax_nom_dep, nom, fontsize=14, halign='right')
 
